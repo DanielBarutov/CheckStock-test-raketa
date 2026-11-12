@@ -11,6 +11,7 @@ plans/
 
 # Python, tools and build output
 __pycache__/
+__init__.py
 *.py[cod]
 .venv/
 .pytest_cache/
