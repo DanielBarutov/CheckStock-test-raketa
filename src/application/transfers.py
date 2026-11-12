@@ -4,7 +4,6 @@ import uuid
 import application.stock
 import application.transactions
 import domain.movements
-import domain.receipts
 import domain.stock
 import domain.transfers
 
@@ -21,9 +20,9 @@ type Transaction = application.transactions.Transaction[application.stock.Moveme
 
 
 def send(transaction: Transaction, key: uuid.UUID, transfer: Transfer) -> int:
-    domain.receipts.validate_quantity(transfer.quantity)
-    if transfer.source == transfer.destination:
-        raise domain.transfers.InvalidRoute("Source and destination must differ")
+    movement = domain.movements.Movement.start(
+        "transfer", transfer.product_id, transfer.quantity, transfer.source, transfer.destination
+    )
     fingerprint = application.transactions.fingerprint(
         transfer.source, transfer.destination, transfer.product_id, transfer.quantity
     )
@@ -33,16 +32,7 @@ def send(transaction: Transaction, key: uuid.UUID, transfer: Transfer) -> int:
         domain.stock.require_active(stock, transfer.destination)
         balance = domain.stock.require_available(stock, transfer.source, transfer.quantity)
         store.save_balance(transfer.source, transfer.product_id, balance.remove(transfer.quantity))
-        operation_id = store.add_movement(
-            domain.movements.Movement(
-                "transfer",
-                "in_transit",
-                transfer.product_id,
-                transfer.quantity,
-                transfer.source,
-                transfer.destination,
-            )
-        )
+        operation_id = store.add_movement(movement)
         store.record_movement("transfer.send", operation_id)
         return operation_id
 
@@ -54,12 +44,13 @@ def accept(transaction: Transaction, key: uuid.UUID, operation_id: int) -> int:
         movement = store.find_movement("transfer", operation_id)
         if movement is None or movement.destination is None:
             raise domain.transfers.TransferNotFound("Transfer not found")
-        if movement.is_in_transit():
+        state = movement.receive()
+        if state is not None:
             balance = store.get_balance(movement.destination, movement.product_id)
             store.save_balance(
                 movement.destination, movement.product_id, balance.add(movement.quantity)
             )
-            store.save_state(operation_id, "received")
+            store.save_state(operation_id, state)
             store.record_movement("transfer.accept", operation_id)
         return operation_id
 

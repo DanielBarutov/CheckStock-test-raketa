@@ -83,9 +83,7 @@ def router(
     reader: application.inventory.InventoryReader,
     warehouses: application.transactions.Transaction[application.warehouses.WarehouseWriter],
     receipts: application.transactions.Transaction[application.receipts.ReceiptWriter],
-    transfers: application.transfers.Transaction,
-    fbs: application.fbs.Transaction,
-    fbo: application.fbo.Transaction,
+    movements: application.transfers.Transaction,
 ) -> fastapi.APIRouter:
     routes = fastapi.APIRouter()
     templates = fastapi.templating.Jinja2Templates(
@@ -151,9 +149,9 @@ def router(
                 if action == "receive":
                     application.receipts.receive(receipts, command_key, receipt)
                 elif action == "fbo-dispatch":
-                    application.fbo.dispatch(fbo, command_key, receipt)
+                    application.fbo.dispatch(movements, command_key, receipt)
                 else:
-                    application.fbs.reserve(fbs, command_key, receipt)
+                    application.fbs.reserve(movements, command_key, receipt)
             elif action == "transfer-send":
                 transfer = application.transfers.Transfer(
                     _identifier(warehouse_id),
@@ -161,14 +159,14 @@ def router(
                     _identifier(product_id),
                     int(quantity),
                 )
-                application.transfers.send(transfers, command_key, transfer)
+                application.transfers.send(movements, command_key, transfer)
             elif action == "transfer-accept":
-                application.transfers.accept(transfers, command_key, _identifier(operation_id))
+                application.transfers.accept(movements, command_key, _identifier(operation_id))
             elif action == "fbo-accept":
-                application.fbo.accept(fbo, command_key, _identifier(operation_id))
+                application.fbo.accept(movements, command_key, _identifier(operation_id))
             elif action == "fbs-cancel" or action == "fbs-dispatch":
-                finish: application.fbs.Action = "cancel" if action == "fbs-cancel" else "dispatch"
-                application.fbs.finish(fbs, command_key, _identifier(operation_id), finish)
+                finish: domain.fbs.Action = "cancel" if action == "fbs-cancel" else "dispatch"
+                application.fbs.finish(movements, command_key, _identifier(operation_id), finish)
             else:
                 change = application.warehouses.Change(
                     action,

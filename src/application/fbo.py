@@ -4,7 +4,6 @@ import application.receipts
 import application.stock
 import application.transactions
 import domain.movements
-import domain.receipts
 import domain.stock
 
 
@@ -19,7 +18,9 @@ _DESTINATION = "Маркетплейс FBO"
 def dispatch(
     transaction: Transaction, key: uuid.UUID, shipment: application.receipts.Receipt
 ) -> int:
-    domain.receipts.validate_quantity(shipment.quantity)
+    movement = domain.movements.Movement.start(
+        "fbo", shipment.product_id, shipment.quantity, shipment.warehouse_id
+    )
     fingerprint = application.transactions.fingerprint(
         shipment.warehouse_id, shipment.product_id, shipment.quantity
     )
@@ -33,9 +34,7 @@ def dispatch(
         stock = store.active_stock(product_id)
         balance = domain.stock.require_available(stock, warehouse_id, quantity)
         store.save_balance(warehouse_id, product_id, balance.remove(quantity))
-        operation_id = store.add_movement(
-            domain.movements.Movement("fbo", "in_transit", product_id, quantity, warehouse_id)
-        )
+        operation_id = store.add_movement(movement)
         store.record_movement("fbo.dispatch", operation_id, _DESTINATION)
         return operation_id
 
@@ -47,8 +46,9 @@ def accept(transaction: Transaction, key: uuid.UUID, operation_id: int) -> int:
         movement = store.find_movement("fbo", operation_id)
         if movement is None:
             raise ShipmentNotFound("Shipment not found")
-        if movement.is_in_transit():
-            store.save_state(operation_id, "received")
+        state = movement.receive()
+        if state is not None:
+            store.save_state(operation_id, state)
             store.record_movement("fbo.accept", operation_id, _DESTINATION)
         return operation_id
 

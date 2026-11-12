@@ -9,6 +9,10 @@ class Balance:
     on_hand: int = 0
     reserved: int = 0
 
+    def __post_init__(self) -> None:
+        if not 0 <= self.reserved <= self.on_hand <= domain.receipts.MAX_QUANTITY:
+            raise ValueError("Invalid stock balance")
+
     @property
     def available(self) -> int:
         return self.on_hand - self.reserved
@@ -21,6 +25,13 @@ class Balance:
 
     def remove(self, quantity: int) -> "Balance":
         return Balance(self.on_hand - quantity, self.reserved)
+
+    def reserve(self, quantity: int) -> "Balance":
+        return Balance(self.on_hand, self.reserved + quantity)
+
+    def release(self, quantity: int, *, shipped: bool) -> "Balance":
+        on_hand = self.on_hand - quantity if shipped else self.on_hand
+        return Balance(on_hand, self.reserved - quantity)
 
 
 def require_active(stock: dict[int, tuple[str, Balance]], warehouse_id: int) -> Balance:
