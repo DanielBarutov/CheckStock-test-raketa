@@ -14,6 +14,7 @@
       <nav aria-label="Разделы" class="mt-2 flex gap-5 text-sm sm:mt-0">
         <a class="link link-hover" href="#balances">Остатки</a>
         <a class="link link-hover" href="#operations">Операции</a>
+        <a class="link link-hover" href="#transfers">В пути</a>
         <a class="link link-hover" href="#history">История</a>
       </nav>
     </div>
@@ -50,6 +51,7 @@
       </div>
     </section>
     {% include "inventory_forms.html" %}
+    {% include "inventory_transfers.html" %}
     <section id="history" aria-labelledby="history-title">
       <h2 id="history-title" class="mb-4 text-xl font-semibold">История операций</h2>
       <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">

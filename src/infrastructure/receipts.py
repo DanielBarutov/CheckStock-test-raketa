@@ -5,6 +5,7 @@ import sqlalchemy.engine
 
 import application.receipts
 import domain.receipts
+import infrastructure.balances
 
 
 class PostgresReceiptWriter:
@@ -20,16 +21,9 @@ class PostgresReceiptWriter:
         name = self.connection.execute(target, params).scalar_one_or_none()
         if name is None:
             raise domain.receipts.ReceiptTargetNotFound("Active warehouse or product not found")
-        balance = sqlalchemy.text("""
-            INSERT INTO stock_balances (warehouse_id, product_id, on_hand, reserved)
-            VALUES (:warehouse_id, :product_id, :quantity, 0)
-            ON CONFLICT (warehouse_id, product_id) DO UPDATE
-            SET on_hand = stock_balances.on_hand + EXCLUDED.on_hand
-            WHERE stock_balances.on_hand <= 2147483647 - EXCLUDED.on_hand
-            RETURNING on_hand
-        """)
-        if self.connection.execute(balance, params).scalar_one_or_none() is None:
-            raise domain.receipts.StockLimit("Physical stock exceeds the supported quantity")
+        infrastructure.balances.add(
+            self.connection, receipt.warehouse_id, receipt.product_id, receipt.quantity
+        )
         audit = sqlalchemy.text("""
             INSERT INTO audit_entries (action, product_id, quantity, destination_warehouse_id,
                                        source_name, destination_name)

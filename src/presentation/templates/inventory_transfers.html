@@ -1,0 +1,18 @@
+<section id="transfers" aria-labelledby="transfers-title">
+  <h2 id="transfers-title" class="mb-4 text-xl font-semibold">Перемещения между складами</h2>
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+    <table class="table table-zebra">
+      <thead><tr><th>Артикул</th><th>Откуда</th><th>Куда</th><th>В пути, шт.</th></tr></thead>
+      <tbody>
+      {% for transfer in inventory.transfers %}
+        <tr>
+          <th scope="row">{{ transfer.sku }}</th><td>{{ transfer.source }}</td>
+          <td>{{ transfer.destination }}</td><td>{{ transfer.quantity }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">Нет товаров в пути между складами.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

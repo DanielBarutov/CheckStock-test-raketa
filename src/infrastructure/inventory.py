@@ -42,4 +42,14 @@ class PostgresInventoryReader:
             products = [
                 application.inventory.Option(*row) for row in connection.exec_driver_sql(catalog)
             ]
-        return application.inventory.Inventory(balances, history, warehouses, products)
+            transfers = [
+                application.inventory.InTransit(*row)
+                for row in connection.exec_driver_sql("""
+                    SELECT o.id, p.sku, o.quantity, s.name, d.name FROM stock_operations o
+                    JOIN products p ON p.id = o.product_id
+                    JOIN warehouses s ON s.id = o.source_warehouse_id
+                    JOIN warehouses d ON d.id = o.destination_warehouse_id
+                    WHERE o.kind = 'transfer' AND o.state = 'in_transit' ORDER BY o.id
+                """)
+            ]
+        return application.inventory.Inventory(balances, history, warehouses, products, transfers)

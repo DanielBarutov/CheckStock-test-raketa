@@ -31,11 +31,21 @@ class Option:
 
 
 @dataclasses.dataclass(frozen=True)
+class InTransit:
+    id: int
+    sku: str
+    quantity: int
+    source: str
+    destination: str
+
+
+@dataclasses.dataclass(frozen=True)
 class Inventory:
     balances: list[Balance]
     history: list[HistoryEntry]
     warehouses: list[Option]
     products: list[Option]
+    transfers: list[InTransit]
 
 
 class InventoryReader(typing.Protocol):
