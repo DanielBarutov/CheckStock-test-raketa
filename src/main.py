@@ -7,12 +7,11 @@ import fastapi
 import sqlalchemy
 
 import infrastructure.database
-import infrastructure.fbo
 import infrastructure.fbs
 import infrastructure.inventory
+import infrastructure.movements
 import infrastructure.receipts
 import infrastructure.transactions
-import infrastructure.transfers
 import infrastructure.warehouses
 import presentation.health
 import presentation.inventory
@@ -50,13 +49,13 @@ def create_app() -> fastapi.FastAPI:
             warehouses,
             receipts,
             infrastructure.transactions.PostgresTransaction(
-                engine, infrastructure.transfers.PostgresTransferWriter
+                engine, infrastructure.movements.PostgresMovements
             ),
             infrastructure.transactions.PostgresTransaction(
                 engine, infrastructure.fbs.PostgresWriter
             ),
             infrastructure.transactions.PostgresTransaction(
-                engine, infrastructure.fbo.PostgresWriter
+                engine, infrastructure.movements.PostgresMovements
             ),
         )
     )

@@ -1,5 +1,6 @@
 import typing
 
+import domain.movements
 import domain.stock
 
 
@@ -7,4 +8,16 @@ class Balances(typing.Protocol):
     def get_balance(self, warehouse_id: int, product_id: int) -> domain.stock.Balance: ...
     def save_balance(
         self, warehouse_id: int, product_id: int, balance: domain.stock.Balance
+    ) -> None: ...
+
+
+class Movements(Balances, typing.Protocol):
+    def active_stock(self, product_id: int) -> dict[int, tuple[str, domain.stock.Balance]]: ...
+    def add_movement(self, movement: domain.movements.Movement) -> int: ...
+    def find_movement(
+        self, kind: domain.movements.Kind, operation_id: int
+    ) -> domain.movements.Movement | None: ...
+    def save_state(self, operation_id: int, state: domain.movements.State) -> None: ...
+    def record_movement(
+        self, action: str, operation_id: int, external_destination: str | None = None
     ) -> None: ...

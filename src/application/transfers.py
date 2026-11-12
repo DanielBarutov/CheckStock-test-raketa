@@ -1,9 +1,11 @@
 import dataclasses
-import typing
 import uuid
 
+import application.stock
 import application.transactions
+import domain.movements
 import domain.receipts
+import domain.stock
 import domain.transfers
 
 
@@ -15,12 +17,7 @@ class Transfer:
     quantity: int
 
 
-class TransferWriter(typing.Protocol):
-    def send(self, transfer: Transfer) -> int: ...
-    def accept(self, operation_id: int) -> int: ...
-
-
-type Transaction = application.transactions.Transaction[TransferWriter]
+type Transaction = application.transactions.Transaction[application.stock.Movements]
 
 
 def send(transaction: Transaction, key: uuid.UUID, transfer: Transfer) -> int:
@@ -30,11 +27,42 @@ def send(transaction: Transaction, key: uuid.UUID, transfer: Transfer) -> int:
     fingerprint = application.transactions.fingerprint(
         transfer.source, transfer.destination, transfer.product_id, transfer.quantity
     )
-    return transaction.run(key, "transfer.send", fingerprint, lambda writer: writer.send(transfer))
+
+    def write(store: application.stock.Movements) -> int:
+        stock = store.active_stock(transfer.product_id)
+        domain.stock.require_active(stock, transfer.destination)
+        balance = domain.stock.require_available(stock, transfer.source, transfer.quantity)
+        store.save_balance(transfer.source, transfer.product_id, balance.remove(transfer.quantity))
+        operation_id = store.add_movement(
+            domain.movements.Movement(
+                "transfer",
+                "in_transit",
+                transfer.product_id,
+                transfer.quantity,
+                transfer.source,
+                transfer.destination,
+            )
+        )
+        store.record_movement("transfer.send", operation_id)
+        return operation_id
+
+    return transaction.run(key, "transfer.send", fingerprint, write)
 
 
 def accept(transaction: Transaction, key: uuid.UUID, operation_id: int) -> int:
-    fingerprint = application.transactions.fingerprint(operation_id)
+    def write(store: application.stock.Movements) -> int:
+        movement = store.find_movement("transfer", operation_id)
+        if movement is None or movement.destination is None:
+            raise domain.transfers.TransferNotFound("Transfer not found")
+        if movement.is_in_transit():
+            balance = store.get_balance(movement.destination, movement.product_id)
+            store.save_balance(
+                movement.destination, movement.product_id, balance.add(movement.quantity)
+            )
+            store.save_state(operation_id, "received")
+            store.record_movement("transfer.accept", operation_id)
+        return operation_id
+
     return transaction.run(
-        key, "transfer.accept", fingerprint, lambda writer: writer.accept(operation_id)
+        key, "transfer.accept", application.transactions.fingerprint(operation_id), write
     )

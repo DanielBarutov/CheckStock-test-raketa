@@ -1,6 +1,7 @@
 import dataclasses
 
 import domain.receipts
+import domain.transfers
 
 
 @dataclasses.dataclass(frozen=True)
@@ -17,3 +18,26 @@ class Balance:
         if on_hand > domain.receipts.MAX_QUANTITY:
             raise domain.receipts.StockLimit("Physical stock exceeds the supported quantity")
         return Balance(on_hand, self.reserved)
+
+    def remove(self, quantity: int) -> "Balance":
+        return Balance(self.on_hand - quantity, self.reserved)
+
+
+def require_active(stock: dict[int, tuple[str, Balance]], warehouse_id: int) -> Balance:
+    if warehouse_id not in stock:
+        raise domain.receipts.ReceiptTargetNotFound("Active warehouse or product not found")
+    return stock[warehouse_id][1]
+
+
+def require_available(
+    stock: dict[int, tuple[str, Balance]], warehouse_id: int, quantity: int
+) -> Balance:
+    balance = require_active(stock, warehouse_id)
+    if balance.available < quantity:
+        alternatives = [
+            (name, other.available)
+            for identifier, (name, other) in stock.items()
+            if identifier != warehouse_id and other.available > 0
+        ]
+        raise domain.transfers.InsufficientStock(balance.available, alternatives)
+    return balance
