@@ -2,6 +2,7 @@ import collections.abc
 import html.parser
 import io
 import pathlib
+import re
 
 import fastapi.testclient
 import pytest
@@ -108,3 +109,34 @@ def test_inventory_shows_archived_stock_and_keeps_historical_warehouse_name(
     assert ("SKU-101", "10", "Внешний приход", "Север") in {
         tuple(row[2:]) for row in tables["history"] if row[1] == "Приход"
     }
+
+
+def test_inventory_keeps_fbs_and_fbo_shipments_in_separate_sections(
+    api: fastapi.testclient.TestClient,
+    warehouse_id: int,
+    product_id: int,
+    command_key: collections.abc.Callable[[], dict[str, str]],
+) -> None:
+    """Проверяет раздельный показ FBS и FBO, когда обе отправки одновременно в пути."""
+    stock = {"warehouse_id": warehouse_id, "product_id": product_id, "quantity": 5}
+    assert api.post("/receipts", json=stock, headers=command_key()).status_code == 201
+    reserve = {**stock, "quantity": 2, "key": command_key()["Idempotency-Key"]}
+    assert (
+        api.post("/inventory/fbs-reserve", data=reserve, follow_redirects=False).status_code == 303
+    )
+    page = api.get("/")
+    operation = re.search(r'name="operation_id" value="(\d+)"', page.text)
+    assert operation is not None
+    dispatch = {"operation_id": operation[1], "key": command_key()["Idempotency-Key"]}
+    assert (
+        api.post("/inventory/fbs-dispatch", data=dispatch, follow_redirects=False).status_code
+        == 303
+    )
+
+    fbo = {**stock, "quantity": 3, "key": command_key()["Idempotency-Key"]}
+    response = api.post("/inventory/fbo-dispatch", data=fbo)
+    assert response.status_code == 200
+    tables = TableRows(response.text).tables
+    assert tables["fbs"] == [["SKU", "Север", "2", "В пути к клиенту", "—"]]
+    assert tables["fbo"][0][:4] == ["SKU", "Север", "3", "В пути на маркетплейс"]
+    assert len(tables["fbo"]) == 1

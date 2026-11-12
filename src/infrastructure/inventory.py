@@ -52,38 +52,27 @@ class PostgresInventoryReader:
                     WHERE o.kind = 'transfer' AND o.state = 'in_transit' ORDER BY o.id
                 """)
             ]
-            fbs = connection.exec_driver_sql("""
-                SELECT o.state, o.id, p.sku, o.quantity, w.name, 'Клиент FBS'
+            shipments = connection.exec_driver_sql("""
+                SELECT o.kind, o.state, o.id, p.sku, o.quantity, w.name,
+                       CASE WHEN o.kind = 'fbs' THEN 'Клиент FBS' ELSE 'Маркетплейс FBO' END
                 FROM stock_operations o JOIN products p ON p.id = o.product_id
                 JOIN warehouses w ON w.id = o.source_warehouse_id
-                WHERE o.kind = 'fbs' AND o.state IN ('reserved', 'in_transit') ORDER BY o.id
+                WHERE o.kind = 'fbo' OR (o.kind = 'fbs' AND o.state IN ('reserved', 'in_transit'))
+                ORDER BY o.id
             """).all()
-            fbo = connection.exec_driver_sql("""
-                SELECT o.state, o.id, p.sku, o.quantity, w.name, 'Маркетплейс FBO'
-                FROM stock_operations o JOIN products p ON p.id = o.product_id
-                JOIN warehouses w ON w.id = o.source_warehouse_id
-                WHERE o.kind = 'fbo' ORDER BY o.id
-            """).all()
-        reserved = [
-            application.inventory.InTransit(*row[1:]) for row in fbs if row.state == "reserved"
-        ]
-        outbound = [
-            application.inventory.InTransit(*row[1:]) for row in fbs if row.state == "in_transit"
-        ]
-        fbo_in_transit = [
-            application.inventory.InTransit(*row[1:]) for row in fbo if row.state == "in_transit"
-        ]
-        fbo_received = [
-            application.inventory.InTransit(*row[1:]) for row in fbo if row.state == "received"
-        ]
+        by_status: dict[tuple[str, str], list[application.inventory.InTransit]] = {}
+        for kind, state, *shipment in shipments:
+            by_status.setdefault((kind, state), []).append(
+                application.inventory.InTransit(*shipment)
+            )
         return application.inventory.Inventory(
             balances,
             history,
             warehouses,
             products,
             transfers,
-            reserved,
-            outbound,
-            fbo_in_transit,
-            fbo_received,
+            by_status.get(("fbs", "reserved"), []),
+            by_status.get(("fbs", "in_transit"), []),
+            by_status.get(("fbo", "in_transit"), []),
+            by_status.get(("fbo", "received"), []),
         )

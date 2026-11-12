@@ -1,24 +1,13 @@
+{% from "inventory_fields.html" import key, choices, quantity with context %}
 <section id="transfers" aria-labelledby="transfers-title">
   <h2 id="transfers-title" class="mb-4 text-xl font-semibold">Перемещения между складами</h2>
   {% if inventory.warehouses|length >= 2 and inventory.products %}
   <form action="/inventory/transfer-send" method="post" class="mb-4 grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-    <input type="hidden" name="key" value="{{ new_key() }}">
-    {% for field, label, options in [
-      ("warehouse_id", "Откуда", inventory.warehouses),
-      ("destination_id", "Куда", inventory.warehouses),
-      ("product_id", "Товар", inventory.products)
-    ] %}
-    <label class="block text-sm font-medium">
-      {{ label }}
-      <select name="{{ field }}" class="select mt-1 w-full" required>
-        <option value="">Выберите</option>
-        {% for option in options %}<option value="{{ option.id }}">{{ option.label }}</option>{% endfor %}
-      </select>
-    </label>
-    {% endfor %}
-    <label class="block text-sm font-medium">Количество
-      <input name="quantity" type="number" min="1" max="2147483647" step="1" class="input mt-1 w-full" required>
-    </label>
+    {{ key() }}
+    {{ choices("warehouse_id", "Откуда", inventory.warehouses) }}
+    {{ choices("destination_id", "Куда", inventory.warehouses) }}
+    {{ choices("product_id", "Товар", inventory.products) }}
+    {{ quantity() }}
     <button class="btn w-full" type="submit">Отправить</button>
   </form>
   {% endif %}
@@ -32,7 +21,7 @@
           <td>{{ transfer.destination }}</td><td>{{ transfer.quantity }}</td>
           <td>
             <form action="/inventory/transfer-accept" method="post">
-              <input type="hidden" name="key" value="{{ new_key() }}">
+              {{ key() }}
               <input type="hidden" name="operation_id" value="{{ transfer.id }}">
               <button class="btn btn-sm" type="submit">Принять</button>
             </form>

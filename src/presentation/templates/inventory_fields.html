@@ -1,0 +1,18 @@
+{% macro key() %}
+<input type="hidden" name="key" value="{{ new_key() }}">
+{% endmacro %}
+{% macro choices(name, title, options) %}
+<label class="block text-sm font-medium">
+  {{ title }}
+  <select name="{{ name }}" class="select mt-1 w-full" required>
+    <option value="">Выберите из списка</option>
+    {% for option in options %}<option value="{{ option.id }}">{{ option.label }}</option>{% endfor %}
+  </select>
+</label>
+{% endmacro %}
+{% macro quantity() %}
+<label class="block text-sm font-medium">
+  Количество
+  <input name="quantity" type="number" min="1" max="{{ max_quantity }}" step="1" class="input mt-1 w-full" required>
+</label>
+{% endmacro %}

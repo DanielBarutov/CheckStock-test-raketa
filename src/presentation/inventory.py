@@ -44,7 +44,7 @@ _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
     domain.warehouses.WarehouseNotFound: (404, "Активный склад не найден."),
     domain.receipts.InvalidQuantity: (422, "Укажите положительное целое количество."),
     domain.receipts.ReceiptTargetNotFound: (404, "Активный склад или товар не найден."),
-    domain.receipts.StockLimit: (409, "Приход превысит допустимый остаток."),
+    domain.receipts.StockLimit: (409, "Операция превысит допустимый остаток."),
     application.transactions.KeyConflict: (409, "Форма уже отправлена с другими данными."),
 }
 type FormAction = typing.Literal[
@@ -94,6 +94,7 @@ def router(
                 "actions": _ACTIONS,
                 "utc": datetime.UTC,
                 "new_key": uuid.uuid4,
+                "max_quantity": domain.receipts.MAX_QUANTITY,
                 "error": error,
             },
             status_code=status,
