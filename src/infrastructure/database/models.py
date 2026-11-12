@@ -2,7 +2,6 @@ import datetime
 import uuid
 
 import sqlalchemy as sa
-import sqlalchemy.dialects.postgresql as sa_pg
 import sqlalchemy.orm as sa_orm
 
 
@@ -35,7 +34,7 @@ class Warehouse(Base):
     )
     name: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
     archived_at: sa_orm.Mapped[datetime.datetime | None] = sa_orm.mapped_column(
-        sa_pg.TIMESTAMP(timezone=True)
+        sa.DateTime(timezone=True), nullable=True
     )
 
 
@@ -71,11 +70,11 @@ class StockOperation(Base):
         sa.BigInteger, sa.ForeignKey("warehouses.id")
     )
     created_at: sa_orm.Mapped[datetime.datetime] = sa_orm.mapped_column(
-        sa_pg.TIMESTAMP(timezone=True),
+        sa.DateTime(timezone=True),
         server_default=sa.func.now(),
     )
     updated_at: sa_orm.Mapped[datetime.datetime] = sa_orm.mapped_column(
-        sa_pg.TIMESTAMP(timezone=True),
+        sa.DateTime(timezone=True),
         server_default=sa.func.now(),
         onupdate=sa.func.now(),
     )
@@ -88,7 +87,7 @@ class AuditEntry(Base):
         sa.BigInteger, sa.Identity(always=True), primary_key=True
     )
     created_at: sa_orm.Mapped[datetime.datetime] = sa_orm.mapped_column(
-        sa_pg.TIMESTAMP(timezone=True),
+        sa.DateTime(timezone=True),
         server_default=sa.func.now(),
     )
     action: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
@@ -115,4 +114,4 @@ class CommandReceipt(Base):
     idempotency_key: sa_orm.Mapped[uuid.UUID] = sa_orm.mapped_column(primary_key=True)
     command: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
     fingerprint: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
-    result: sa_orm.Mapped[int] = sa_orm.mapped_column(sa_pg.JSONB)
+    result: sa_orm.Mapped[int] = sa_orm.mapped_column(sa.JSON)
