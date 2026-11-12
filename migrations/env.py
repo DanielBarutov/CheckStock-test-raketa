@@ -1,7 +1,7 @@
 import os
 
 import alembic.context
-import sqlalchemy
+import sqlalchemy as sa
 
 url = os.environ["DATABASE_URL"]
 
@@ -10,7 +10,7 @@ if alembic.context.is_offline_mode():
     with alembic.context.begin_transaction():
         alembic.context.run_migrations()
 else:
-    engine = sqlalchemy.create_engine(url, poolclass=sqlalchemy.NullPool)
+    engine = sa.create_engine(url, poolclass=sa.NullPool)
     with engine.connect() as connection:
         alembic.context.configure(connection=connection)
         with alembic.context.begin_transaction():

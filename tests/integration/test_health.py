@@ -1,6 +1,6 @@
 import fastapi.testclient
 import pytest
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 import main
 
@@ -9,7 +9,7 @@ import main
     ("available", "status"), [(True, 200), (False, 503)], ids=["ready", "unavailable"]
 )
 def test_health_reports_database_readiness(
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     monkeypatch: pytest.MonkeyPatch,
     available: bool,
     status: int,

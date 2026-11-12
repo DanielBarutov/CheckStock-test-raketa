@@ -1,4 +1,4 @@
-import sqlalchemy
+import sqlalchemy as sa
 
 import application.stock
 import infrastructure.database.models as orm_models
@@ -8,7 +8,7 @@ import infrastructure.repositories.balances
 class PostgresReceiptWriter(infrastructure.repositories.balances.PostgresBalances):
     def active_target_name(self, warehouse_id: int, product_id: int) -> str | None:
         query = (
-            sqlalchemy.select(orm_models.Warehouse.name)
+            sa.select(orm_models.Warehouse.name)
             .join(orm_models.Product, orm_models.Product.id == product_id)
             .where(
                 orm_models.Warehouse.id == warehouse_id, orm_models.Warehouse.archived_at.is_(None)

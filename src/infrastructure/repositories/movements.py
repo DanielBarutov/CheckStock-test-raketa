@@ -1,5 +1,5 @@
-import sqlalchemy
-import sqlalchemy.orm
+import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 import domain.movements
 import domain.stock
@@ -12,11 +12,11 @@ class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
         warehouse = orm_models.Warehouse
         balance = orm_models.StockBalance
         query = (
-            sqlalchemy.select(
+            sa.select(
                 warehouse.id,
                 warehouse.name,
-                sqlalchemy.func.coalesce(balance.on_hand, 0),
-                sqlalchemy.func.coalesce(balance.reserved, 0),
+                sa.func.coalesce(balance.on_hand, 0),
+                sa.func.coalesce(balance.reserved, 0),
             )
             .select_from(warehouse)
             .join(orm_models.Product, orm_models.Product.id == product_id)
@@ -48,9 +48,7 @@ class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
         self, kind: domain.movements.Kind, operation_id: int
     ) -> domain.movements.Movement | None:
         operation = orm_models.StockOperation
-        query = sqlalchemy.select(operation).where(
-            operation.id == operation_id, operation.kind == kind
-        )
+        query = sa.select(operation).where(operation.id == operation_id, operation.kind == kind)
         row = self.session.scalars(query).one_or_none()
         if row is None:
             return None
@@ -70,10 +68,10 @@ class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
         self, action: str, operation_id: int, external_destination: str | None = None
     ) -> None:
         operation = orm_models.StockOperation
-        source = sqlalchemy.orm.aliased(orm_models.Warehouse)
-        destination = sqlalchemy.orm.aliased(orm_models.Warehouse)
+        source = sa_orm.aliased(orm_models.Warehouse)
+        destination = sa_orm.aliased(orm_models.Warehouse)
         query = (
-            sqlalchemy.select(operation, source.name, destination.name)
+            sa.select(operation, source.name, destination.name)
             .join(source, source.id == operation.source_warehouse_id)
             .outerjoin(destination, destination.id == operation.destination_warehouse_id)
             .where(operation.id == operation_id)

@@ -1,5 +1,5 @@
-import sqlalchemy
-import sqlalchemy.orm
+import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 import application.inventory
 import domain.stock
@@ -17,20 +17,20 @@ class PostgresInventoryReader:
         balance = orm_models.StockBalance
         audit = orm_models.AuditEntry
         operation = orm_models.StockOperation
-        destination = sqlalchemy.orm.aliased(warehouse)
+        destination = sa_orm.aliased(warehouse)
 
         with self.sessions() as session:
             balances_query = (
-                sqlalchemy.select(
+                sa.select(
                     product.sku,
                     product.name,
                     warehouse.name,
                     warehouse.archived_at.is_not(None),
-                    sqlalchemy.func.coalesce(balance.on_hand, 0),
-                    sqlalchemy.func.coalesce(balance.reserved, 0),
+                    sa.func.coalesce(balance.on_hand, 0),
+                    sa.func.coalesce(balance.reserved, 0),
                 )
                 .select_from(product)
-                .join(warehouse, sqlalchemy.true())
+                .join(warehouse, sa.true())
                 .outerjoin(
                     balance,
                     (balance.product_id == product.id) & (balance.warehouse_id == warehouse.id),
@@ -46,7 +46,7 @@ class PostgresInventoryReader:
                 for sku, name, site, archived, on_hand, reserved in session.execute(balances_query)
             ]
             history_query = (
-                sqlalchemy.select(
+                sa.select(
                     audit.created_at,
                     audit.action,
                     product.sku,
@@ -61,18 +61,18 @@ class PostgresInventoryReader:
                 application.inventory.HistoryEntry(*row) for row in session.execute(history_query)
             ]
             active = (
-                sqlalchemy.select(warehouse.id, warehouse.name)
+                sa.select(warehouse.id, warehouse.name)
                 .where(warehouse.archived_at.is_(None))
                 .order_by(warehouse.name, warehouse.id)
             )
-            catalog = sqlalchemy.select(product.id, product.sku + " · " + product.name).order_by(
+            catalog = sa.select(product.id, product.sku + " · " + product.name).order_by(
                 product.sku
             )
             warehouses = [application.inventory.Option(*row) for row in session.execute(active)]
             products = [application.inventory.Option(*row) for row in session.execute(catalog)]
 
             movement_query = (
-                sqlalchemy.select(
+                sa.select(
                     operation.kind,
                     operation.state,
                     operation.id,
@@ -86,7 +86,7 @@ class PostgresInventoryReader:
                 .join(warehouse, warehouse.id == operation.source_warehouse_id)
                 .outerjoin(destination, destination.id == operation.destination_warehouse_id)
                 .where(
-                    sqlalchemy.tuple_(operation.kind, operation.state).in_(
+                    sa.tuple_(operation.kind, operation.state).in_(
                         [
                             ("transfer", "in_transit"),
                             ("fbs", "reserved"),

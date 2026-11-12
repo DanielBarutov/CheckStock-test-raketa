@@ -2,7 +2,7 @@ import re
 
 import fastapi.testclient
 import pytest
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 
 def form(html: str, action: str) -> str:
@@ -21,7 +21,7 @@ def test_receipt_form_redirects_and_retry_keeps_stock_unchanged(
     api: fastapi.testclient.TestClient,
     warehouse_id: int,
     product_id: int,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что приход из формы обновляет остаток один раз и возвращает в раздел операций."""
     data = {
@@ -41,7 +41,7 @@ def test_receipt_form_redirects_and_retry_keeps_stock_unchanged(
 
 
 def test_warehouse_forms_create_rename_and_archive_without_losing_stock(
-    api: fastapi.testclient.TestClient, product_id: int, postgres: sqlalchemy.engine.Engine
+    api: fastapi.testclient.TestClient, product_id: int, postgres: sa.engine.Engine
 ) -> None:
     """Проверяет управление складом из браузера и исключение архива из новых приходов."""
     created = api.post("/inventory/create", data={"key": key_for(api, "create"), "name": "Запад"})
@@ -72,7 +72,7 @@ def test_invalid_receipt_form_returns_readable_error_without_writing_stock(
     api: fastapi.testclient.TestClient,
     warehouse_id: int,
     product_id: int,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     field: str,
     value: str,
 ) -> None:

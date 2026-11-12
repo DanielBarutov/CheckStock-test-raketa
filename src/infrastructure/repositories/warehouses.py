@@ -1,7 +1,6 @@
 import psycopg.errors
-import sqlalchemy
-import sqlalchemy.exc
-import sqlalchemy.orm
+import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 import application.warehouses
 import domain.warehouses
@@ -9,7 +8,7 @@ import infrastructure.database.models as orm_models
 
 
 class PostgresWarehouseWriter:
-    def __init__(self, session: sqlalchemy.orm.Session) -> None:
+    def __init__(self, session: sa_orm.Session) -> None:
         self.session = session
 
     def find(self, warehouse_id: int | None) -> domain.warehouses.Warehouse | None:
@@ -33,13 +32,13 @@ class PostgresWarehouseWriter:
                 warehouse.name = change.name
             else:
                 self.session.execute(
-                    sqlalchemy.update(orm_models.Warehouse)
+                    sa.update(orm_models.Warehouse)
                     .where(orm_models.Warehouse.id == warehouse.id)
-                    .values(archived_at=sqlalchemy.func.now())
+                    .values(archived_at=sa.func.now())
                 )
         try:
             self.session.flush()
-        except sqlalchemy.exc.IntegrityError as error:
+        except sa.exc.IntegrityError as error:
             if isinstance(error.orig, psycopg.errors.UniqueViolation):
                 raise domain.warehouses.NameConflict("Warehouse name is already in use") from error
             raise

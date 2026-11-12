@@ -1,14 +1,14 @@
 import collections.abc
 
 import fastapi.testclient
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 type Key = collections.abc.Callable[[], dict[str, str]]
 
 
 def test_fbo_receipt_moves_shipment_out_of_transit_without_respending_stock(
     api: fastapi.testclient.TestClient,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     warehouse_id: int,
     product_id: int,
     command_key: Key,

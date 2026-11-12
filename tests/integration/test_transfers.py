@@ -4,7 +4,7 @@ import threading
 
 import fastapi.testclient
 import pytest
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 type Key = collections.abc.Callable[[], dict[str, str]]
 
@@ -25,7 +25,7 @@ def transfer_data(
 
 def test_transfer_accepts_once_even_concurrently_after_destination_is_archived(
     api: fastapi.testclient.TestClient,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     transfer_data: dict[str, int],
     command_key: Key,
 ) -> None:

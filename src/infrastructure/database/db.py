@@ -1,24 +1,23 @@
-import sqlalchemy
-import sqlalchemy.exc
-import sqlalchemy.orm
+import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
-type SessionFactory = sqlalchemy.orm.sessionmaker[sqlalchemy.orm.Session]
+type SessionFactory = sa_orm.sessionmaker[sa_orm.Session]
 
 
 class Database:
     def __init__(self, url: str) -> None:
-        self._engine = sqlalchemy.create_engine(url, pool_pre_ping=True)
-        self.sessions = sqlalchemy.orm.sessionmaker(self._engine)
+        self._engine = sa.create_engine(url, pool_pre_ping=True)
+        self.sessions = sa_orm.sessionmaker(self._engine)
         read_engine = self._engine.execution_options(
             isolation_level="REPEATABLE READ", postgresql_readonly=True
         )
-        self.read_sessions = sqlalchemy.orm.sessionmaker(read_engine)
+        self.read_sessions = sa_orm.sessionmaker(read_engine)
 
     def check(self) -> None:
         try:
             with self.sessions() as session:
-                session.execute(sqlalchemy.select(1))
-        except sqlalchemy.exc.OperationalError as error:
+                session.execute(sa.select(1))
+        except sa.exc.OperationalError as error:
             raise ConnectionError("Database unavailable") from error
 
     def close(self) -> None:

@@ -2,14 +2,14 @@ import collections.abc
 import concurrent.futures
 
 import fastapi.testclient
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 type Key = collections.abc.Callable[[], dict[str, str]]
 
 
 def test_concurrent_fbs_reservations_and_repeated_dispatch(
     api: fastapi.testclient.TestClient,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     warehouse_id: int,
     product_id: int,
     command_key: Key,
@@ -51,7 +51,7 @@ def test_concurrent_fbs_reservations_and_repeated_dispatch(
 
 def test_cancelling_fbs_reservation_releases_stock(
     api: fastapi.testclient.TestClient,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     warehouse_id: int,
     product_id: int,
     command_key: Key,

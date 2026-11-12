@@ -1,11 +1,11 @@
-import sqlalchemy.orm
+import sqlalchemy.orm as sa_orm
 
 import domain.stock
 import infrastructure.database.models as orm_models
 
 
 class PostgresBalances:
-    def __init__(self, session: sqlalchemy.orm.Session) -> None:
+    def __init__(self, session: sa_orm.Session) -> None:
         self.session = session
 
     def get_balance(self, warehouse_id: int, product_id: int) -> domain.stock.Balance:

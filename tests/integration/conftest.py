@@ -6,14 +6,13 @@ import uuid
 
 import fastapi.testclient
 import pytest
-import sqlalchemy
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 import main
 
 
 @pytest.fixture(scope="session")
-def postgres_url() -> collections.abc.Iterator[sqlalchemy.engine.URL]:
+def postgres_url() -> collections.abc.Iterator[sa.engine.URL]:
     run = ["docker", "run", "--rm", "-d", "-p", "127.0.0.1::5432", "-e"]
     container = subprocess.check_output(
         [*run, "POSTGRES_PASSWORD=checkstock", "postgres:18"], text=True
@@ -21,9 +20,7 @@ def postgres_url() -> collections.abc.Iterator[sqlalchemy.engine.URL]:
     try:
         port = ["docker", "port", container, "5432/tcp"]
         address = subprocess.check_output(port, text=True).strip()
-        url = sqlalchemy.engine.make_url(
-            f"postgresql+psycopg://postgres:checkstock@{address}/postgres"
-        )
+        url = sa.engine.make_url(f"postgresql+psycopg://postgres:checkstock@{address}/postgres")
         ready = ["docker", "exec", container, "pg_isready", "-h", "127.0.0.1"]
         for _ in range(30):
             if subprocess.run(ready, check=False, capture_output=True).returncode == 0:
@@ -38,10 +35,10 @@ def postgres_url() -> collections.abc.Iterator[sqlalchemy.engine.URL]:
 
 @pytest.fixture
 def postgres(
-    postgres_url: sqlalchemy.engine.URL, monkeypatch: pytest.MonkeyPatch
-) -> collections.abc.Iterator[sqlalchemy.engine.Engine]:
-    admin = sqlalchemy.create_engine(postgres_url, isolation_level="AUTOCOMMIT")
-    engine = sqlalchemy.create_engine(postgres_url.set(database="checkstock_test"))
+    postgres_url: sa.engine.URL, monkeypatch: pytest.MonkeyPatch
+) -> collections.abc.Iterator[sa.engine.Engine]:
+    admin = sa.create_engine(postgres_url, isolation_level="AUTOCOMMIT")
+    engine = sa.create_engine(postgres_url.set(database="checkstock_test"))
     try:
         with admin.connect() as connection:
             connection.exec_driver_sql("CREATE DATABASE checkstock_test")
@@ -57,7 +54,7 @@ def postgres(
 
 @pytest.fixture
 def api(
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> collections.abc.Iterator[fastapi.testclient.TestClient]:
     with fastapi.testclient.TestClient(main.create_app(), raise_server_exceptions=False) as client:
         yield client
@@ -79,7 +76,7 @@ def warehouse_id(
 
 
 @pytest.fixture
-def product_id(postgres: sqlalchemy.engine.Engine) -> int:
+def product_id(postgres: sa.engine.Engine) -> int:
     with postgres.begin() as connection:
         result = connection.exec_driver_sql(
             "INSERT INTO products (sku, name) VALUES ('SKU', 'Test') RETURNING id"

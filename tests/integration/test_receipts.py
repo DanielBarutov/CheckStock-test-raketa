@@ -4,7 +4,7 @@ import pathlib
 
 import fastapi.testclient
 import pytest
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 import seed
 
@@ -17,7 +17,7 @@ def receipt(warehouse_id: int, product_id: int) -> dict[str, int]:
 
 
 def test_demo_can_be_loaded_twice_without_duplicating_stock(
-    postgres: sqlalchemy.engine.Engine, monkeypatch: pytest.MonkeyPatch
+    postgres: sa.engine.Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Проверяет, что повторная загрузка демо сохраняет исходные остатки и четыре прихода."""
     data = pathlib.Path(__file__).parents[1] / "fixtures" / "demo_inventory.json"
@@ -44,7 +44,7 @@ def test_new_receipt_increases_stock_once_even_if_retried(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     receipt: dict[str, int],
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что два разных прихода складываются, а повтор второго не увеличивает остаток."""
     assert api.post("/receipts", json=receipt, headers=command_key()).status_code == 201
@@ -74,7 +74,7 @@ def test_receipt_rejects_invalid_quantity(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     receipt: dict[str, int],
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     quantity: float | bool,
 ) -> None:
     """Проверяет, что недопустимое количество отклоняется без создания остатка."""
@@ -89,7 +89,7 @@ def test_receipt_rejects_archived_warehouse(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     receipt: dict[str, int],
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что архивный склад отклоняет новый приход, сохраняя результат прежнего."""
     key = command_key()
@@ -109,7 +109,7 @@ def test_receipt_rejects_balance_overflow(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     receipt: dict[str, int],
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что приход сверх предельного остатка отклоняется и сохраняет прежнее число."""
     limit = 2**31 - 1
@@ -127,7 +127,7 @@ def test_receipt_can_be_retried_after_history_write_fails(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     receipt: dict[str, int],
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что сбой журнала откатывает приход и тот же запрос можно провести повторно."""
     assert api.post("/receipts", json=receipt, headers=command_key()).status_code == 201

@@ -6,7 +6,7 @@ import re
 
 import fastapi.testclient
 import pytest
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 import seed
 
@@ -42,7 +42,7 @@ class TableRows(html.parser.HTMLParser):
 
 
 @pytest.fixture
-def demo(monkeypatch: pytest.MonkeyPatch, postgres: sqlalchemy.engine.Engine) -> None:
+def demo(monkeypatch: pytest.MonkeyPatch, postgres: sa.engine.Engine) -> None:
     path = pathlib.Path(__file__).parents[1] / "fixtures" / "demo_inventory.json"
     monkeypatch.setattr("sys.stdin", io.StringIO(path.read_text(encoding="utf-8")))
     seed.main()
@@ -86,7 +86,7 @@ def test_inventory_lists_all_demo_pairs_and_receipt_history(
 def test_inventory_shows_archived_stock_and_keeps_historical_warehouse_name(
     api: fastapi.testclient.TestClient,
     demo: None,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     command_key: collections.abc.Callable[[], dict[str, str]],
 ) -> None:
     """Проверяет доступность до и после архивации и сохранение прежнего названия в истории."""

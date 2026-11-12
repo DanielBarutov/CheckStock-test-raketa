@@ -2,13 +2,13 @@ import collections.abc
 
 import fastapi.testclient
 import pytest
-import sqlalchemy.engine
+import sqlalchemy as sa
 
 type CommandKey = collections.abc.Callable[[], dict[str, str]]
 
 
 def test_creation_replays_normalized_name_without_creating_another_warehouse(
-    api: fastapi.testclient.TestClient, command_key: CommandKey, postgres: sqlalchemy.engine.Engine
+    api: fastapi.testclient.TestClient, command_key: CommandKey, postgres: sa.engine.Engine
 ) -> None:
     """Проверяет, что повтор создания с тем же ключом возвращает тот же склад."""
     key = command_key()
@@ -30,7 +30,7 @@ def test_creation_replays_normalized_name_without_creating_another_warehouse(
 def test_rejected_creation_preserves_catalog(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
     name: str,
     reuse_key: bool,
     status: int,
@@ -52,7 +52,7 @@ def test_rename_preserves_warehouse_id_and_previous_name_in_history(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     warehouse_id: int,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что переименование сохраняет ID и прежнее название в журнале."""
     response = api.patch(
@@ -76,7 +76,7 @@ def test_archiving_preserves_balance_and_replay_does_not_duplicate_history(
     command_key: CommandKey,
     warehouse_id: int,
     product_id: int,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что архивирование сохраняет остаток и повтор не добавляет запись в журнал."""
     with postgres.begin() as connection:
@@ -110,7 +110,7 @@ def test_archive_can_be_retried_after_history_write_fails(
     api: fastapi.testclient.TestClient,
     command_key: CommandKey,
     warehouse_id: int,
-    postgres: sqlalchemy.engine.Engine,
+    postgres: sa.engine.Engine,
 ) -> None:
     """Проверяет, что сбой записи истории отменяет архивирование и позволяет повторить запрос."""
     with postgres.begin() as connection:
