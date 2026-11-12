@@ -2,6 +2,8 @@ import dataclasses
 import datetime
 import typing
 
+import domain.stock
+
 
 @dataclasses.dataclass(frozen=True)
 class Balance:
@@ -9,9 +11,11 @@ class Balance:
     product: str
     warehouse: str
     archived: bool
-    on_hand: int
-    available: int
-    reserved: int
+    stock: domain.stock.Balance
+
+    @property
+    def available(self) -> int:
+        return 0 if self.archived else self.stock.available
 
 
 @dataclasses.dataclass(frozen=True)

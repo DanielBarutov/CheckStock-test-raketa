@@ -1,6 +1,5 @@
 import uuid
 
-import application.receipts
 import application.stock
 import application.transactions
 import domain.fbs
@@ -11,7 +10,7 @@ type Transaction = application.transactions.Transaction[application.stock.Moveme
 
 
 def reserve(
-    transaction: Transaction, key: uuid.UUID, reservation: application.receipts.Receipt
+    transaction: Transaction, key: uuid.UUID, reservation: application.stock.StockRequest
 ) -> int:
     warehouse_id, product_id, quantity = (
         reservation.warehouse_id,

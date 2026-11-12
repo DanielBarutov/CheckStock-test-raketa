@@ -3,7 +3,7 @@ import typing
 
 import sqlalchemy
 
-import application.receipts
+import application.stock
 import infrastructure.balances
 
 
@@ -20,7 +20,7 @@ class PostgresReceiptWriter(infrastructure.balances.PostgresBalances):
             ).scalar_one_or_none(),
         )
 
-    def record_receipt(self, receipt: application.receipts.Receipt, destination_name: str) -> int:
+    def record_receipt(self, receipt: application.stock.StockRequest, destination_name: str) -> int:
         audit = sqlalchemy.text("""
             INSERT INTO audit_entries (action, product_id, quantity, destination_warehouse_id,
                                        source_name, destination_name)

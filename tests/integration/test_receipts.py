@@ -6,7 +6,7 @@ import fastapi.testclient
 import pytest
 import sqlalchemy.engine
 
-import infrastructure.seed
+import seed
 
 type CommandKey = collections.abc.Callable[[], dict[str, str]]
 
@@ -23,7 +23,7 @@ def test_demo_can_be_loaded_twice_without_duplicating_stock(
     data = pathlib.Path(__file__).parents[1] / "fixtures" / "demo_inventory.json"
     for _ in range(2):
         monkeypatch.setattr("sys.stdin", io.StringIO(data.read_text(encoding="utf-8")))
-        infrastructure.seed.main()
+        seed.main()
 
     with postgres.connect() as connection:
         balances = connection.exec_driver_sql("""

@@ -14,4 +14,4 @@ check: test
 	uv run --locked mypy src tests
 
 seed:
-	docker compose exec -T app python -m infrastructure.seed < tests/fixtures/demo_inventory.json
+	docker compose exec -T app python -m seed < tests/fixtures/demo_inventory.json

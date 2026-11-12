@@ -5,6 +5,7 @@ import fastapi
 import pydantic
 
 import application.receipts
+import application.stock
 import application.transactions
 import domain.receipts
 
@@ -27,7 +28,7 @@ def router(
         body: ReceiptInput,
         key: typing.Annotated[uuid.UUID, fastapi.Header(alias="Idempotency-Key")],
     ) -> dict[str, int]:
-        receipt = application.receipts.Receipt(body.warehouse_id, body.product_id, body.quantity)
+        receipt = application.stock.StockRequest(body.warehouse_id, body.product_id, body.quantity)
         try:
             return {"id": application.receipts.receive(transaction, key, receipt)}
         except domain.receipts.InvalidQuantity as error:

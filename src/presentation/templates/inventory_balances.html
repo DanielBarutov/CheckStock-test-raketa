@@ -15,9 +15,9 @@
           <th scope="row" class="font-mono text-xs">{{ row.sku }}</th>
           <td>{{ row.product }}</td>
           <td>{{ row.warehouse }}{% if row.archived %} <span class="badge badge-ghost badge-sm">Архив</span>{% endif %}</td>
-          <td class="text-right tabular-nums">{{ row.on_hand }}</td>
+          <td class="text-right tabular-nums">{{ row.stock.on_hand }}</td>
           <td class="text-right font-semibold tabular-nums">{{ row.available }}</td>
-          <td class="text-right tabular-nums">{{ row.reserved }}</td>
+          <td class="text-right tabular-nums">{{ row.stock.reserved }}</td>
         </tr>
       {% else %}
         <tr><td colspan="6">Пока нет остатков. Загрузите демо командой <code>make seed</code>.</td></tr>

@@ -8,7 +8,7 @@ import fastapi.testclient
 import pytest
 import sqlalchemy.engine
 
-import infrastructure.seed
+import seed
 
 
 class TableRows(html.parser.HTMLParser):
@@ -45,7 +45,7 @@ class TableRows(html.parser.HTMLParser):
 def demo(monkeypatch: pytest.MonkeyPatch, postgres: sqlalchemy.engine.Engine) -> None:
     path = pathlib.Path(__file__).parents[1] / "fixtures" / "demo_inventory.json"
     monkeypatch.setattr("sys.stdin", io.StringIO(path.read_text(encoding="utf-8")))
-    infrastructure.seed.main()
+    seed.main()
 
 
 def test_inventory_renders_empty_state(api: fastapi.testclient.TestClient) -> None:

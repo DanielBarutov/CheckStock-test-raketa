@@ -2,12 +2,11 @@ import sqlalchemy
 import sqlalchemy.engine
 
 import application.inventory
+import domain.stock
 
 _BALANCES = sqlalchemy.text("""
     SELECT p.sku, p.name, w.name, w.archived_at IS NOT NULL,
-           coalesce(b.on_hand, 0),
-           CASE WHEN w.archived_at IS NULL THEN coalesce(b.on_hand - b.reserved, 0) ELSE 0 END,
-           coalesce(b.reserved, 0)
+           coalesce(b.on_hand, 0), coalesce(b.reserved, 0)
     FROM products p CROSS JOIN warehouses w
     LEFT JOIN stock_balances b ON b.product_id = p.id AND b.warehouse_id = w.id
     ORDER BY p.sku, w.archived_at IS NOT NULL, w.name, w.id
@@ -29,7 +28,12 @@ class PostgresInventoryReader:
             isolation_level="REPEATABLE READ", postgresql_readonly=True
         ) as connection:
             balances = [
-                application.inventory.Balance(*row) for row in connection.execute(_BALANCES)
+                application.inventory.Balance(
+                    sku, product, warehouse, archived, domain.stock.Balance(on_hand, reserved)
+                )
+                for sku, product, warehouse, archived, on_hand, reserved in connection.execute(
+                    _BALANCES
+                )
             ]
             history = [
                 application.inventory.HistoryEntry(*row) for row in connection.execute(_HISTORY)

@@ -1,6 +1,5 @@
 import uuid
 
-import application.receipts
 import application.stock
 import application.transactions
 import domain.movements
@@ -16,7 +15,7 @@ _DESTINATION = "Маркетплейс FBO"
 
 
 def dispatch(
-    transaction: Transaction, key: uuid.UUID, shipment: application.receipts.Receipt
+    transaction: Transaction, key: uuid.UUID, shipment: application.stock.StockRequest
 ) -> int:
     movement = domain.movements.Movement.start(
         "fbo", shipment.product_id, shipment.quantity, shipment.warehouse_id

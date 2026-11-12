@@ -1,4 +1,3 @@
-import dataclasses
 import typing
 import uuid
 
@@ -7,22 +6,17 @@ import application.transactions
 import domain.receipts
 
 
-@dataclasses.dataclass(frozen=True)
-class Receipt:
-    warehouse_id: int
-    product_id: int
-    quantity: int
-
-
 class ReceiptWriter(application.stock.Balances, typing.Protocol):
     def active_target_name(self, warehouse_id: int, product_id: int) -> str | None: ...
-    def record_receipt(self, receipt: Receipt, destination_name: str) -> int: ...
+    def record_receipt(
+        self, receipt: application.stock.StockRequest, destination_name: str
+    ) -> int: ...
 
 
 def receive(
     transaction: application.transactions.Transaction[ReceiptWriter],
     key: uuid.UUID,
-    receipt: Receipt,
+    receipt: application.stock.StockRequest,
 ) -> int:
     domain.receipts.validate_quantity(receipt.quantity)
     fingerprint = application.transactions.fingerprint(

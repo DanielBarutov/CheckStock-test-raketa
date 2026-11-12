@@ -16,7 +16,8 @@ class Change:
 
 
 class WarehouseWriter(typing.Protocol):
-    def save_change(self, change: Change) -> tuple[int, str | None, str | None] | None: ...
+    def find(self, warehouse_id: int | None) -> domain.warehouses.Warehouse | None: ...
+    def save_change(self, change: Change) -> int: ...
     def record_change(
         self, action: str, warehouse_id: int, old_name: str | None, new_name: str | None
     ) -> None: ...
@@ -33,11 +34,12 @@ def change_warehouse(
     fingerprint = application.transactions.fingerprint(change.warehouse_id, change.name)
 
     def write(store: WarehouseWriter) -> int:
-        result = store.save_change(change)
-        if result is None:
-            raise domain.warehouses.WarehouseNotFound("Active warehouse not found")
-        warehouse_id, old_name, new_name = result
-        store.record_change(command, warehouse_id, old_name, new_name)
+        previous = None
+        if change.action != "create":
+            previous = domain.warehouses.require_active(store.find(change.warehouse_id))
+        warehouse_id = store.save_change(change)
+        new_name = None if change.action == "archive" else change.name
+        store.record_change(command, warehouse_id, previous.name if previous else None, new_name)
         return warehouse_id
 
     return transaction.run(key, command, fingerprint, write)

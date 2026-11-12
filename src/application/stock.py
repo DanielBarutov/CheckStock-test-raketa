@@ -1,7 +1,15 @@
+import dataclasses
 import typing
 
 import domain.movements
 import domain.stock
+
+
+@dataclasses.dataclass(frozen=True)
+class StockRequest:
+    warehouse_id: int
+    product_id: int
+    quantity: int
 
 
 class Balances(typing.Protocol):

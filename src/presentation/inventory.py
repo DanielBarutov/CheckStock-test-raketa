@@ -11,6 +11,7 @@ import application.fbo
 import application.fbs
 import application.inventory
 import application.receipts
+import application.stock
 import application.transactions
 import application.transfers
 import application.warehouses
@@ -143,7 +144,7 @@ def router(
         try:
             command_key = uuid.UUID(key)
             if action == "receive" or action == "fbs-reserve" or action == "fbo-dispatch":
-                receipt = application.receipts.Receipt(
+                receipt = application.stock.StockRequest(
                     _identifier(warehouse_id), _identifier(product_id), int(quantity)
                 )
                 if action == "receive":
