@@ -37,7 +37,7 @@ class Warehouse(Base):
     )
     name: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
     archived_at: sqlalchemy.orm.Mapped[datetime.datetime | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.DateTime(timezone=True)
+        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True)
     )
 
 
@@ -77,10 +77,11 @@ class StockOperation(Base):
         sqlalchemy.BigInteger, sqlalchemy.ForeignKey("warehouses.id")
     )
     created_at: sqlalchemy.orm.Mapped[datetime.datetime] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.DateTime(timezone=True), server_default=sqlalchemy.func.now()
+        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True),
+        server_default=sqlalchemy.func.now(),
     )
     updated_at: sqlalchemy.orm.Mapped[datetime.datetime] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.DateTime(timezone=True),
+        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True),
         server_default=sqlalchemy.func.now(),
         onupdate=sqlalchemy.func.now(),
     )
@@ -93,7 +94,8 @@ class AuditEntry(Base):
         sqlalchemy.BigInteger, sqlalchemy.Identity(always=True), primary_key=True
     )
     created_at: sqlalchemy.orm.Mapped[datetime.datetime] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.DateTime(timezone=True), server_default=sqlalchemy.func.now()
+        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True),
+        server_default=sqlalchemy.func.now(),
     )
     action: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
     operation_id: sqlalchemy.orm.Mapped[int | None] = sqlalchemy.orm.mapped_column(
