@@ -40,7 +40,7 @@ class PostgresInventoryReader:
                 )
             )
             balances = [
-                application.inventory.Balance(
+                application.inventory.BalanceRow(
                     sku, name, site, archived, domain.stock.Balance(on_hand, reserved)
                 )
                 for sku, name, site, archived, on_hand, reserved in session.execute(balances_query)

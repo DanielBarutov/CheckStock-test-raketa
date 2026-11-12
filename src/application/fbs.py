@@ -17,7 +17,9 @@ def reserve(
         reservation.product_id,
         reservation.quantity,
     )
-    movement = domain.movements.Movement.start("fbs", product_id, quantity, warehouse_id)
+    movement = domain.movements.Movement.start(
+        domain.movements.Kind.FBS, product_id, quantity, warehouse_id
+    )
     fingerprint = application.transactions.fingerprint(warehouse_id, product_id, quantity)
 
     def write(store: application.stock.Movements) -> int:
@@ -37,13 +39,13 @@ def finish(
     command = f"fbs.{action}"
 
     def write(store: application.stock.Movements) -> int:
-        reservation = store.find_movement("fbs", operation_id)
+        reservation = store.find_movement(domain.movements.Kind.FBS, operation_id)
         if reservation is None:
             raise domain.fbs.ReservationNotFound("Reservation not found")
         state = domain.fbs.finish_reservation(reservation.state, action)
         if state is not None:
             warehouse_id, product_id = reservation.source, reservation.product_id
-            shipped = state == "in_transit"
+            shipped = state is domain.movements.State.IN_TRANSIT
             balance = store.get_balance(warehouse_id, product_id)
             store.save_balance(
                 warehouse_id, product_id, balance.release(reservation.quantity, shipped=shipped)

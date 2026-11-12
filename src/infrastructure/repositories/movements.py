@@ -33,8 +33,8 @@ class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
 
     def add_movement(self, movement: domain.movements.Movement) -> int:
         row = orm_models.StockOperation(
-            kind=movement.kind,
-            state=movement.state,
+            kind=movement.kind.value,
+            state=movement.state.value,
             product_id=movement.product_id,
             quantity=movement.quantity,
             source_warehouse_id=movement.source,
@@ -48,13 +48,15 @@ class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
         self, kind: domain.movements.Kind, operation_id: int
     ) -> domain.movements.Movement | None:
         operation = orm_models.StockOperation
-        query = sa.select(operation).where(operation.id == operation_id, operation.kind == kind)
+        query = sa.select(operation).where(
+            operation.id == operation_id, operation.kind == kind.value
+        )
         row = self.session.scalars(query).one_or_none()
         if row is None:
             return None
         return domain.movements.Movement(
-            row.kind,
-            row.state,
+            domain.movements.Kind(row.kind),
+            domain.movements.State(row.state),
             row.product_id,
             row.quantity,
             row.source_warehouse_id,
@@ -62,7 +64,7 @@ class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
         )
 
     def save_state(self, operation_id: int, state: domain.movements.State) -> None:
-        self.session.get_one(orm_models.StockOperation, operation_id).state = state
+        self.session.get_one(orm_models.StockOperation, operation_id).state = state.value
 
     def record_movement(
         self, action: str, operation_id: int, external_destination: str | None = None

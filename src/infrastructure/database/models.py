@@ -1,130 +1,118 @@
 import datetime
 import uuid
 
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-import sqlalchemy.orm
-
-import domain.movements
+import sqlalchemy as sa
+import sqlalchemy.dialects.postgresql as sa_pg
+import sqlalchemy.orm as sa_orm
 
 
-class Base(sqlalchemy.orm.DeclarativeBase):
+class Base(sa_orm.DeclarativeBase):
     pass
 
 
 class Store(Base):
     __tablename__ = "stores"
 
-    id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(primary_key=True)
-    name: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
+    id: sa_orm.Mapped[int] = sa_orm.mapped_column(primary_key=True)
+    name: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
 
 
 class Product(Base):
     __tablename__ = "products"
 
-    id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.Identity(always=True), primary_key=True
+    id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.Identity(always=True), primary_key=True
     )
-    sku: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text, unique=True)
-    name: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
+    sku: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text, unique=True)
+    name: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
 
 
 class Warehouse(Base):
     __tablename__ = "warehouses"
 
-    id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.Identity(always=True), primary_key=True
+    id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.Identity(always=True), primary_key=True
     )
-    name: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
-    archived_at: sqlalchemy.orm.Mapped[datetime.datetime | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True)
+    name: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
+    archived_at: sa_orm.Mapped[datetime.datetime | None] = sa_orm.mapped_column(
+        sa_pg.TIMESTAMP(timezone=True)
     )
 
 
 class StockBalance(Base):
     __tablename__ = "stock_balances"
 
-    warehouse_id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("warehouses.id"), primary_key=True
+    warehouse_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("warehouses.id"), primary_key=True
     )
-    product_id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("products.id"), primary_key=True
+    product_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("products.id"), primary_key=True
     )
-    on_hand: sqlalchemy.orm.Mapped[int]
-    reserved: sqlalchemy.orm.Mapped[int]
+    on_hand: sa_orm.Mapped[int]
+    reserved: sa_orm.Mapped[int]
 
 
 class StockOperation(Base):
     __tablename__ = "stock_operations"
 
-    id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.Identity(always=True), primary_key=True
+    id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.Identity(always=True), primary_key=True
     )
-    kind: sqlalchemy.orm.Mapped[domain.movements.Kind] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.Text
+    kind: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
+    state: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
+    product_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("products.id")
     )
-    state: sqlalchemy.orm.Mapped[domain.movements.State] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.Text
+    quantity: sa_orm.Mapped[int]
+    source_warehouse_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("warehouses.id")
     )
-    product_id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("products.id")
+    destination_warehouse_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("warehouses.id")
     )
-    quantity: sqlalchemy.orm.Mapped[int]
-    source_warehouse_id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("warehouses.id")
+    created_at: sa_orm.Mapped[datetime.datetime] = sa_orm.mapped_column(
+        sa_pg.TIMESTAMP(timezone=True),
+        server_default=sa.func.now(),
     )
-    destination_warehouse_id: sqlalchemy.orm.Mapped[int | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("warehouses.id")
-    )
-    created_at: sqlalchemy.orm.Mapped[datetime.datetime] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True),
-        server_default=sqlalchemy.func.now(),
-    )
-    updated_at: sqlalchemy.orm.Mapped[datetime.datetime] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True),
-        server_default=sqlalchemy.func.now(),
-        onupdate=sqlalchemy.func.now(),
+    updated_at: sa_orm.Mapped[datetime.datetime] = sa_orm.mapped_column(
+        sa_pg.TIMESTAMP(timezone=True),
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
     )
 
 
 class AuditEntry(Base):
     __tablename__ = "audit_entries"
 
-    id: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.Identity(always=True), primary_key=True
+    id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.BigInteger, sa.Identity(always=True), primary_key=True
     )
-    created_at: sqlalchemy.orm.Mapped[datetime.datetime] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.dialects.postgresql.TIMESTAMP(timezone=True),
-        server_default=sqlalchemy.func.now(),
+    created_at: sa_orm.Mapped[datetime.datetime] = sa_orm.mapped_column(
+        sa_pg.TIMESTAMP(timezone=True),
+        server_default=sa.func.now(),
     )
-    action: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
-    operation_id: sqlalchemy.orm.Mapped[int | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("stock_operations.id")
+    action: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
+    operation_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("stock_operations.id")
     )
-    product_id: sqlalchemy.orm.Mapped[int | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("products.id")
+    product_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("products.id")
     )
-    quantity: sqlalchemy.orm.Mapped[int | None]
-    source_warehouse_id: sqlalchemy.orm.Mapped[int | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("warehouses.id")
+    quantity: sa_orm.Mapped[int | None]
+    source_warehouse_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("warehouses.id")
     )
-    destination_warehouse_id: sqlalchemy.orm.Mapped[int | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.BigInteger, sqlalchemy.ForeignKey("warehouses.id")
+    destination_warehouse_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.BigInteger, sa.ForeignKey("warehouses.id")
     )
-    source_name: sqlalchemy.orm.Mapped[str | None] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
-    destination_name: sqlalchemy.orm.Mapped[str | None] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.Text
-    )
+    source_name: sa_orm.Mapped[str | None] = sa_orm.mapped_column(sa.Text)
+    destination_name: sa_orm.Mapped[str | None] = sa_orm.mapped_column(sa.Text)
 
 
 class CommandReceipt(Base):
     __tablename__ = "command_receipts"
 
-    idempotency_key: sqlalchemy.orm.Mapped[uuid.UUID] = sqlalchemy.orm.mapped_column(
-        primary_key=True
-    )
-    command: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
-    fingerprint: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column(sqlalchemy.Text)
-    result: sqlalchemy.orm.Mapped[int] = sqlalchemy.orm.mapped_column(
-        sqlalchemy.dialects.postgresql.JSONB
-    )
+    idempotency_key: sa_orm.Mapped[uuid.UUID] = sa_orm.mapped_column(primary_key=True)
+    command: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
+    fingerprint: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Text)
+    result: sa_orm.Mapped[int] = sa_orm.mapped_column(sa_pg.JSONB)

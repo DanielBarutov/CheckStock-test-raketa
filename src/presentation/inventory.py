@@ -17,6 +17,7 @@ import application.transfers
 import application.warehouses
 import domain.fbs
 import domain.receipts
+import domain.stock
 import domain.transfers
 import domain.warehouses
 import presentation.deps
@@ -53,9 +54,9 @@ _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
     domain.warehouses.InvalidName: (422, "Укажите название склада длиной от 1 до 120 символов."),
     domain.warehouses.NameConflict: (409, "Склад с таким названием уже существует."),
     domain.warehouses.WarehouseNotFound: (404, "Активный склад не найден."),
-    domain.receipts.InvalidQuantity: (422, "Укажите положительное целое количество."),
+    domain.stock.InvalidQuantity: (422, "Укажите положительное целое количество."),
     domain.receipts.ReceiptTargetNotFound: (404, "Активный склад или товар не найден."),
-    domain.receipts.StockLimit: (409, "Операция превысит допустимый остаток."),
+    domain.stock.StockLimit: (409, "Операция превысит допустимый остаток."),
     application.transactions.KeyConflict: (409, "Форма уже отправлена с другими данными."),
 }
 type FormAction = typing.Literal[
@@ -104,7 +105,7 @@ def render(
             "actions": _ACTIONS,
             "utc": datetime.UTC,
             "new_key": uuid.uuid4,
-            "max_quantity": domain.receipts.MAX_QUANTITY,
+            "max_quantity": domain.stock.MAX_QUANTITY,
             "error": error,
             "saved": error is None and request.query_params.get("saved") == "1",
         },
@@ -165,7 +166,7 @@ def submit(
             else:
                 application.fbs.reserve(movements, command_key, receipt)
         elif action == "transfer-send":
-            transfer = application.transfers.Transfer(
+            transfer = application.transfers.SendTransfer(
                 _identifier(warehouse_id),
                 _identifier(destination_id),
                 _identifier(product_id),

@@ -9,7 +9,7 @@ import domain.transfers
 
 
 @dataclasses.dataclass(frozen=True)
-class Transfer:
+class SendTransfer:
     source: int
     destination: int
     product_id: int
@@ -19,9 +19,13 @@ class Transfer:
 type Transaction = application.transactions.Transaction[application.stock.Movements]
 
 
-def send(transaction: Transaction, key: uuid.UUID, transfer: Transfer) -> int:
+def send(transaction: Transaction, key: uuid.UUID, transfer: SendTransfer) -> int:
     movement = domain.movements.Movement.start(
-        "transfer", transfer.product_id, transfer.quantity, transfer.source, transfer.destination
+        domain.movements.Kind.TRANSFER,
+        transfer.product_id,
+        transfer.quantity,
+        transfer.source,
+        transfer.destination,
     )
     fingerprint = application.transactions.fingerprint(
         transfer.source, transfer.destination, transfer.product_id, transfer.quantity
@@ -41,7 +45,7 @@ def send(transaction: Transaction, key: uuid.UUID, transfer: Transfer) -> int:
 
 def accept(transaction: Transaction, key: uuid.UUID, operation_id: int) -> int:
     def write(store: application.stock.Movements) -> int:
-        movement = store.find_movement("transfer", operation_id)
+        movement = store.find_movement(domain.movements.Kind.TRANSFER, operation_id)
         if movement is None or movement.destination is None:
             raise domain.transfers.TransferNotFound("Transfer not found")
         state = movement.receive()

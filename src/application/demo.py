@@ -9,7 +9,7 @@ import application.warehouses
 
 
 @dataclasses.dataclass(frozen=True)
-class Product:
+class DemoProduct:
     sku: str
     name: str
     initial_receipts: dict[str, int]
@@ -24,7 +24,7 @@ def load(
     receipts: application.transactions.Transaction[application.receipts.ReceiptWriter],
     catalog: ProductCatalog,
     names: list[str],
-    products: list[Product],
+    products: list[DemoProduct],
 ) -> None:
     ids = {
         name: application.warehouses.change_warehouse(

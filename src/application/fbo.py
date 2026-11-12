@@ -18,7 +18,7 @@ def dispatch(
     transaction: Transaction, key: uuid.UUID, shipment: application.stock.StockRequest
 ) -> int:
     movement = domain.movements.Movement.start(
-        "fbo", shipment.product_id, shipment.quantity, shipment.warehouse_id
+        domain.movements.Kind.FBO, shipment.product_id, shipment.quantity, shipment.warehouse_id
     )
     fingerprint = application.transactions.fingerprint(
         shipment.warehouse_id, shipment.product_id, shipment.quantity
@@ -42,7 +42,7 @@ def dispatch(
 
 def accept(transaction: Transaction, key: uuid.UUID, operation_id: int) -> int:
     def write(store: application.stock.Movements) -> int:
-        movement = store.find_movement("fbo", operation_id)
+        movement = store.find_movement(domain.movements.Kind.FBO, operation_id)
         if movement is None:
             raise ShipmentNotFound("Shipment not found")
         state = movement.receive()

@@ -1,6 +1,7 @@
 import pytest
 
 import domain.fbs
+import domain.movements
 import domain.stock
 
 
@@ -21,4 +22,4 @@ def test_reservation_dispatch_consumes_only_the_reserved_units() -> None:
 def test_dispatched_reservation_cannot_be_cancelled() -> None:
     """Проверяет, что после отправки клиенту резерв закрыт для отмены."""
     with pytest.raises(domain.fbs.ReservationClosed):
-        domain.fbs.finish_reservation("in_transit", "cancel")
+        domain.fbs.finish_reservation(domain.movements.State.IN_TRANSIT, "cancel")

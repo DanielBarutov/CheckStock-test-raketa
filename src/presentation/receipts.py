@@ -8,6 +8,7 @@ import application.receipts
 import application.stock
 import application.transactions
 import domain.receipts
+import domain.stock
 import presentation.deps
 
 PositiveId = typing.Annotated[int, pydantic.Field(strict=True, gt=0, le=2**63 - 1)]
@@ -31,9 +32,9 @@ def receive(
     receipt = application.stock.StockRequest(body.warehouse_id, body.product_id, body.quantity)
     try:
         return {"id": application.receipts.receive(transaction, key, receipt)}
-    except domain.receipts.InvalidQuantity as error:
+    except domain.stock.InvalidQuantity as error:
         raise fastapi.HTTPException(422, str(error)) from error
     except domain.receipts.ReceiptTargetNotFound as error:
         raise fastapi.HTTPException(404, str(error)) from error
-    except (domain.receipts.StockLimit, application.transactions.KeyConflict) as error:
+    except (domain.stock.StockLimit, application.transactions.KeyConflict) as error:
         raise fastapi.HTTPException(409, str(error)) from error

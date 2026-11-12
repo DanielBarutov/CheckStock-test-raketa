@@ -6,7 +6,7 @@ import domain.stock
 
 
 @dataclasses.dataclass(frozen=True)
-class Balance:
+class BalanceRow:
     sku: str
     product: str
     warehouse: str
@@ -45,7 +45,7 @@ class InTransit:
 
 @dataclasses.dataclass(frozen=True)
 class Inventory:
-    balances: list[Balance]
+    balances: list[BalanceRow]
     history: list[HistoryEntry]
     warehouses: list[Option]
     products: list[Option]

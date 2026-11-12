@@ -36,7 +36,7 @@ def main() -> None:
             infrastructure.repositories.products.PostgresProductCatalog(database.sessions),
             data.warehouses,
             [
-                application.demo.Product(product.sku, product.name, product.initial_receipts)
+                application.demo.DemoProduct(product.sku, product.name, product.initial_receipts)
                 for product in data.products
             ],
         )

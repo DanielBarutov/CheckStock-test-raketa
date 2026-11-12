@@ -4,6 +4,7 @@ import uuid
 import application.stock
 import application.transactions
 import domain.receipts
+import domain.stock
 
 
 class ReceiptWriter(application.stock.Balances, typing.Protocol):
@@ -18,7 +19,7 @@ def receive(
     key: uuid.UUID,
     receipt: application.stock.StockRequest,
 ) -> int:
-    domain.receipts.validate_quantity(receipt.quantity)
+    domain.stock.validate_quantity(receipt.quantity)
     fingerprint = application.transactions.fingerprint(
         receipt.warehouse_id, receipt.product_id, receipt.quantity
     )
