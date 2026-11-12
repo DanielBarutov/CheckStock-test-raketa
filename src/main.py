@@ -7,6 +7,7 @@ import fastapi
 import sqlalchemy
 
 import infrastructure.database
+import infrastructure.fbs
 import infrastructure.inventory
 import infrastructure.receipts
 import infrastructure.transactions
@@ -49,6 +50,9 @@ def create_app() -> fastapi.FastAPI:
             receipts,
             infrastructure.transactions.PostgresTransaction(
                 engine, infrastructure.transfers.PostgresTransferWriter
+            ),
+            infrastructure.transactions.PostgresTransaction(
+                engine, infrastructure.fbs.PostgresWriter
             ),
         )
     )

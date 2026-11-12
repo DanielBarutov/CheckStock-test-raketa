@@ -7,11 +7,13 @@ import fastapi
 import fastapi.responses
 import fastapi.templating
 
+import application.fbs
 import application.inventory
 import application.receipts
 import application.transactions
 import application.transfers
 import application.warehouses
+import domain.fbs
 import domain.receipts
 import domain.transfers
 import domain.warehouses
@@ -21,12 +23,17 @@ _ACTIONS = {
     "warehouse.rename": "Переименование склада",
     "warehouse.archive": "Архивирование склада",
     "stock.receipt": "Приход",
+    "fbs.reserve": "Резерв FBS",
+    "fbs.cancel": "Отмена резерва FBS",
+    "fbs.dispatch": "Отправка клиенту FBS",
     "transfer.send": "Отправка между складами",
     "transfer.accept": "Приёмка перемещения",
 }
 _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
     domain.transfers.InvalidRoute: (422, "Выберите разные склады."),
     domain.transfers.TransferNotFound: (404, "Перемещение не найдено."),
+    domain.fbs.ReservationNotFound: (404, "Резерв не найден."),
+    domain.fbs.ReservationClosed: (409, "Резерв уже закрыт."),
     ValueError: (422, "Проверьте введённые данные."),
     domain.warehouses.InvalidName: (422, "Укажите название склада длиной от 1 до 120 символов."),
     domain.warehouses.NameConflict: (409, "Склад с таким названием уже существует."),
@@ -37,7 +44,15 @@ _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
     application.transactions.KeyConflict: (409, "Форма уже отправлена с другими данными."),
 }
 type FormAction = typing.Literal[
-    "receive", "create", "rename", "archive", "transfer-send", "transfer-accept"
+    "receive",
+    "create",
+    "rename",
+    "archive",
+    "transfer-send",
+    "transfer-accept",
+    "fbs-reserve",
+    "fbs-cancel",
+    "fbs-dispatch",
 ]
 FormText = typing.Annotated[str, fastapi.Form()]
 
@@ -54,6 +69,7 @@ def router(
     warehouses: application.transactions.Transaction[application.warehouses.WarehouseWriter],
     receipts: application.transactions.Transaction[application.receipts.ReceiptWriter],
     transfers: application.transfers.Transaction,
+    fbs: application.fbs.Transaction,
 ) -> fastapi.APIRouter:
     routes = fastapi.APIRouter()
     templates = fastapi.templating.Jinja2Templates(
@@ -98,11 +114,14 @@ def router(
             raise fastapi.HTTPException(403, "Cross-origin form submission")
         try:
             command_key = uuid.UUID(key)
-            if action == "receive":
+            if action == "receive" or action == "fbs-reserve":
                 receipt = application.receipts.Receipt(
                     _identifier(warehouse_id), _identifier(product_id), int(quantity)
                 )
-                application.receipts.receive(receipts, command_key, receipt)
+                if action == "receive":
+                    application.receipts.receive(receipts, command_key, receipt)
+                else:
+                    application.fbs.reserve(fbs, command_key, receipt)
             elif action == "transfer-send":
                 transfer = application.transfers.Transfer(
                     _identifier(warehouse_id),
@@ -113,6 +132,9 @@ def router(
                 application.transfers.send(transfers, command_key, transfer)
             elif action == "transfer-accept":
                 application.transfers.accept(transfers, command_key, _identifier(operation_id))
+            elif action == "fbs-cancel" or action == "fbs-dispatch":
+                finish: application.fbs.Action = "cancel" if action == "fbs-cancel" else "dispatch"
+                application.fbs.finish(fbs, command_key, _identifier(operation_id), finish)
             else:
                 change = application.warehouses.Change(
                     action,

@@ -1,0 +1,47 @@
+<section id="fbs" aria-labelledby="fbs-title">
+  <h2 id="fbs-title" class="mb-4 text-xl font-semibold">Заказы FBS</h2>
+  {% if inventory.warehouses and inventory.products %}
+  <form action="/inventory/fbs-reserve" method="post" class="mb-4 grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+    <input type="hidden" name="key" value="{{ new_key() }}">
+    {% for field, label, options in [("warehouse_id", "Склад", inventory.warehouses), ("product_id", "Товар", inventory.products)] %}
+    <label class="block text-sm font-medium">{{ label }}
+      <select name="{{ field }}" class="select mt-1 w-full" required>
+        <option value="">Выберите</option>
+        {% for option in options %}<option value="{{ option.id }}">{{ option.label }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <label class="block text-sm font-medium">Количество
+      <input name="quantity" type="number" min="1" max="2147483647" step="1" class="input mt-1 w-full" required>
+    </label>
+    <button class="btn w-full" type="submit">Зарезервировать</button>
+  </form>
+  {% endif %}
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+    <table class="table table-zebra">
+      <thead><tr><th>Артикул</th><th>Откуда</th><th>Кол-во</th><th>Статус</th><th>Действия</th></tr></thead>
+      <tbody>
+      {% for row in inventory.fbs_reserved %}
+        <tr>
+          <th scope="row">{{ row.sku }}</th><td>{{ row.source }}</td><td>{{ row.quantity }}</td><td>В резерве</td>
+          <td class="flex gap-2">
+            {% for action, label in [("dispatch", "Отправить клиенту"), ("cancel", "Отменить")] %}
+            <form action="/inventory/fbs-{{ action }}" method="post">
+              <input type="hidden" name="key" value="{{ new_key() }}">
+              <input type="hidden" name="operation_id" value="{{ row.id }}">
+              <button class="btn btn-sm" type="submit">{{ label }}</button>
+            </form>
+            {% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+      {% for row in inventory.fbs_in_transit %}
+        <tr><th scope="row">{{ row.sku }}</th><td>{{ row.source }}</td><td>{{ row.quantity }}</td><td>В пути к клиенту</td><td>—</td></tr>
+      {% endfor %}
+      {% if not inventory.fbs_reserved and not inventory.fbs_in_transit %}
+        <tr><td colspan="5">Нет активных резервов и отправок FBS.</td></tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>

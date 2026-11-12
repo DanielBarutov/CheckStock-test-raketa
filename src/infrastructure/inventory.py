@@ -52,4 +52,18 @@ class PostgresInventoryReader:
                     WHERE o.kind = 'transfer' AND o.state = 'in_transit' ORDER BY o.id
                 """)
             ]
-        return application.inventory.Inventory(balances, history, warehouses, products, transfers)
+            fbs = connection.exec_driver_sql("""
+                SELECT o.state, o.id, p.sku, o.quantity, w.name, 'Клиент FBS'
+                FROM stock_operations o JOIN products p ON p.id = o.product_id
+                JOIN warehouses w ON w.id = o.source_warehouse_id
+                WHERE o.kind = 'fbs' AND o.state IN ('reserved', 'in_transit') ORDER BY o.id
+            """).all()
+        reserved = [
+            application.inventory.InTransit(*row[1:]) for row in fbs if row.state == "reserved"
+        ]
+        outbound = [
+            application.inventory.InTransit(*row[1:]) for row in fbs if row.state == "in_transit"
+        ]
+        return application.inventory.Inventory(
+            balances, history, warehouses, products, transfers, reserved, outbound
+        )
