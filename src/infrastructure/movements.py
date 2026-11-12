@@ -1,63 +1,95 @@
-import dataclasses
-
 import sqlalchemy
+import sqlalchemy.orm
 
 import domain.movements
 import domain.stock
 import infrastructure.balances
+import infrastructure.models as orm_models
 
 
 class PostgresMovements(infrastructure.balances.PostgresBalances):
     def active_stock(self, product_id: int) -> dict[int, tuple[str, domain.stock.Balance]]:
-        query = sqlalchemy.text("""
-            SELECT w.id, w.name, coalesce(b.on_hand, 0), coalesce(b.reserved, 0)
-            FROM warehouses w CROSS JOIN products p LEFT JOIN stock_balances b
-              ON b.product_id = p.id AND b.warehouse_id = w.id
-            WHERE w.archived_at IS NULL AND p.id = :product_id ORDER BY w.name, w.id
-        """)
+        warehouse = orm_models.Warehouse
+        balance = orm_models.StockBalance
+        query = (
+            sqlalchemy.select(
+                warehouse.id,
+                warehouse.name,
+                sqlalchemy.func.coalesce(balance.on_hand, 0),
+                sqlalchemy.func.coalesce(balance.reserved, 0),
+            )
+            .select_from(warehouse)
+            .join(orm_models.Product, orm_models.Product.id == product_id)
+            .outerjoin(
+                balance, (balance.product_id == product_id) & (balance.warehouse_id == warehouse.id)
+            )
+            .where(warehouse.archived_at.is_(None))
+            .order_by(warehouse.name, warehouse.id)
+        )
         return {
             identifier: (name, domain.stock.Balance(on_hand, reserved))
-            for identifier, name, on_hand, reserved in self.connection.execute(
-                query, {"product_id": product_id}
-            )
+            for identifier, name, on_hand, reserved in self.session.execute(query)
         }
 
     def add_movement(self, movement: domain.movements.Movement) -> int:
-        query = sqlalchemy.text("""
-            INSERT INTO stock_operations
-                (kind, state, product_id, quantity, source_warehouse_id, destination_warehouse_id)
-            VALUES (:kind, :state, :product_id, :quantity, :source, :destination) RETURNING id
-        """)
-        return int(self.connection.execute(query, dataclasses.asdict(movement)).scalar_one())
+        row = orm_models.StockOperation(
+            kind=movement.kind,
+            state=movement.state,
+            product_id=movement.product_id,
+            quantity=movement.quantity,
+            source_warehouse_id=movement.source,
+            destination_warehouse_id=movement.destination,
+        )
+        self.session.add(row)
+        self.session.flush()
+        return row.id
 
     def find_movement(
         self, kind: domain.movements.Kind, operation_id: int
     ) -> domain.movements.Movement | None:
-        query = sqlalchemy.text("""
-            SELECT kind, state, product_id, quantity, source_warehouse_id, destination_warehouse_id
-            FROM stock_operations WHERE id = :id AND kind = :kind
-        """)
-        row = self.connection.execute(query, {"id": operation_id, "kind": kind}).one_or_none()
-        return domain.movements.Movement(*row) if row is not None else None
+        operation = orm_models.StockOperation
+        query = sqlalchemy.select(operation).where(
+            operation.id == operation_id, operation.kind == kind
+        )
+        row = self.session.scalars(query).one_or_none()
+        if row is None:
+            return None
+        return domain.movements.Movement(
+            row.kind,
+            row.state,
+            row.product_id,
+            row.quantity,
+            row.source_warehouse_id,
+            row.destination_warehouse_id,
+        )
 
     def save_state(self, operation_id: int, state: domain.movements.State) -> None:
-        query = sqlalchemy.text("""
-            UPDATE stock_operations SET state = :state, updated_at = now() WHERE id = :id
-        """)
-        self.connection.execute(query, {"id": operation_id, "state": state})
+        self.session.get_one(orm_models.StockOperation, operation_id).state = state
 
     def record_movement(
         self, action: str, operation_id: int, external_destination: str | None = None
     ) -> None:
-        query = sqlalchemy.text("""
-            INSERT INTO audit_entries (action, operation_id, product_id, quantity, source_warehouse_id,
-                                       destination_warehouse_id, source_name, destination_name)
-            SELECT :action, o.id, o.product_id, o.quantity, s.id, d.id, s.name,
-                   coalesce(d.name, :external_destination)
-            FROM stock_operations o JOIN warehouses s ON s.id = o.source_warehouse_id
-            LEFT JOIN warehouses d ON d.id = o.destination_warehouse_id WHERE o.id = :id
-        """)
-        self.connection.execute(
-            query,
-            {"action": action, "id": operation_id, "external_destination": external_destination},
+        operation = orm_models.StockOperation
+        source = sqlalchemy.orm.aliased(orm_models.Warehouse)
+        destination = sqlalchemy.orm.aliased(orm_models.Warehouse)
+        query = (
+            sqlalchemy.select(operation, source.name, destination.name)
+            .join(source, source.id == operation.source_warehouse_id)
+            .outerjoin(destination, destination.id == operation.destination_warehouse_id)
+            .where(operation.id == operation_id)
+        )
+        row, source_name, destination_name = self.session.execute(query).one()
+        self.session.add(
+            orm_models.AuditEntry(
+                action=action,
+                operation_id=operation_id,
+                product_id=row.product_id,
+                quantity=row.quantity,
+                source_warehouse_id=row.source_warehouse_id,
+                destination_warehouse_id=row.destination_warehouse_id,
+                source_name=source_name,
+                destination_name=destination_name
+                if destination_name is not None
+                else external_destination,
+            )
         )

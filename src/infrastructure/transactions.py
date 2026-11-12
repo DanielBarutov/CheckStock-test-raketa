@@ -3,15 +3,17 @@ import uuid
 
 import sqlalchemy
 import sqlalchemy.engine
+import sqlalchemy.orm
 
 import application.transactions
+import infrastructure.models as orm_models
 
 
 class PostgresTransaction[Writer]:
     def __init__(
         self,
         engine: sqlalchemy.engine.Engine,
-        writer: collections.abc.Callable[[sqlalchemy.engine.Connection], Writer],
+        writer: collections.abc.Callable[[sqlalchemy.orm.Session], Writer],
     ) -> None:
         self.engine = engine
         self.writer = writer
@@ -23,27 +25,18 @@ class PostgresTransaction[Writer]:
         fingerprint: str,
         write: collections.abc.Callable[[Writer], int],
     ) -> int:
-        with self.engine.begin() as connection:
-            connection.execute(
-                sqlalchemy.text("SELECT id FROM stores WHERE id = 1 FOR UPDATE")
-            ).one()
-            receipt = connection.execute(
-                sqlalchemy.text("""
-                SELECT command, fingerprint, result FROM command_receipts
-                WHERE idempotency_key = :key
-            """),
-                {"key": key},
-            ).one_or_none()
+        with sqlalchemy.orm.Session(self.engine) as session, session.begin():
+            lock = sqlalchemy.select(orm_models.Store.id).where(orm_models.Store.id == 1)
+            session.execute(lock.with_for_update()).scalar_one()
+            receipt = session.get(orm_models.CommandReceipt, key)
             if receipt is not None:
                 if (receipt.command, receipt.fingerprint) != (command, fingerprint):
                     raise application.transactions.KeyConflict("Idempotency key is already in use")
-                return int(receipt.result)
-            result = write(self.writer(connection))
-            connection.execute(
-                sqlalchemy.text("""
-                INSERT INTO command_receipts (idempotency_key, command, fingerprint, result)
-                VALUES (:key, :command, :fingerprint, to_jsonb(CAST(:result AS bigint)))
-            """),
-                {"key": key, "command": command, "fingerprint": fingerprint, "result": result},
+                return receipt.result
+            result = write(self.writer(session))
+            session.add(
+                orm_models.CommandReceipt(
+                    idempotency_key=key, command=command, fingerprint=fingerprint, result=result
+                )
             )
             return result
