@@ -1,8 +1,11 @@
-import typing
+import enum
 
 import domain.movements
 
-type Action = typing.Literal["cancel", "dispatch"]
+
+class Action(enum.StrEnum):
+    CANCEL = "cancel"
+    DISPATCH = "dispatch"
 
 
 class ReservationNotFound(LookupError):

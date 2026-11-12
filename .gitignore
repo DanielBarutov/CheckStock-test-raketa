@@ -8,6 +8,7 @@ plans/
 /.graphifyignore
 /.graphify_*
 /.codex
+AGENTS.md
 
 # Python, tools and build output
 __pycache__/

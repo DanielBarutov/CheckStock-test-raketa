@@ -178,7 +178,7 @@ def submit(
         elif action == "fbo-accept":
             application.fbo.accept(movements, command_key, _identifier(operation_id))
         elif action == "fbs-cancel" or action == "fbs-dispatch":
-            finish: domain.fbs.Action = "cancel" if action == "fbs-cancel" else "dispatch"
+            finish = domain.fbs.Action.CANCEL if action == "fbs-cancel" else domain.fbs.Action.DISPATCH
             application.fbs.finish(movements, command_key, _identifier(operation_id), finish)
         else:
             change = application.warehouses.Change(
