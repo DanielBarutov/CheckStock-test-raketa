@@ -1,11 +1,11 @@
 import sqlalchemy
 
 import application.stock
-import infrastructure.balances
-import infrastructure.models as orm_models
+import infrastructure.database.models as orm_models
+import infrastructure.repositories.balances
 
 
-class PostgresReceiptWriter(infrastructure.balances.PostgresBalances):
+class PostgresReceiptWriter(infrastructure.repositories.balances.PostgresBalances):
     def active_target_name(self, warehouse_id: int, product_id: int) -> str | None:
         query = (
             sqlalchemy.select(orm_models.Warehouse.name)

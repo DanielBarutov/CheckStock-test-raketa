@@ -5,7 +5,7 @@ import sqlalchemy.orm
 
 import application.warehouses
 import domain.warehouses
-import infrastructure.models as orm_models
+import infrastructure.database.models as orm_models
 
 
 class PostgresWarehouseWriter:

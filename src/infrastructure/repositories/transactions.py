@@ -2,20 +2,20 @@ import collections.abc
 import uuid
 
 import sqlalchemy
-import sqlalchemy.engine
 import sqlalchemy.orm
 
 import application.transactions
-import infrastructure.models as orm_models
+import infrastructure.database.db
+import infrastructure.database.models as orm_models
 
 
 class PostgresTransaction[Writer]:
     def __init__(
         self,
-        engine: sqlalchemy.engine.Engine,
+        sessions: infrastructure.database.db.SessionFactory,
         writer: collections.abc.Callable[[sqlalchemy.orm.Session], Writer],
     ) -> None:
-        self.engine = engine
+        self.sessions = sessions
         self.writer = writer
 
     def run(
@@ -25,7 +25,7 @@ class PostgresTransaction[Writer]:
         fingerprint: str,
         write: collections.abc.Callable[[Writer], int],
     ) -> int:
-        with sqlalchemy.orm.Session(self.engine) as session, session.begin():
+        with self.sessions() as session, session.begin():
             lock = sqlalchemy.select(orm_models.Store.id).where(orm_models.Store.id == 1)
             session.execute(lock.with_for_update()).scalar_one()
             receipt = session.get(orm_models.CommandReceipt, key)

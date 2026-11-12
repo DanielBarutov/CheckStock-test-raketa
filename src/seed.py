@@ -2,13 +2,13 @@ import os
 import sys
 
 import pydantic
-import sqlalchemy
 
 import application.demo
-import infrastructure.products
-import infrastructure.receipts
-import infrastructure.transactions
-import infrastructure.warehouses
+import infrastructure.database.db
+import infrastructure.repositories.products
+import infrastructure.repositories.receipts
+import infrastructure.repositories.transactions
+import infrastructure.repositories.warehouses
 
 
 class ProductInput(pydantic.BaseModel):
@@ -24,16 +24,16 @@ class DemoInput(pydantic.BaseModel):
 
 def main() -> None:
     data = DemoInput.model_validate_json(sys.stdin.read())
-    engine = sqlalchemy.create_engine(os.environ["DATABASE_URL"])
+    database = infrastructure.database.db.Database(os.environ["DATABASE_URL"])
     try:
         application.demo.load(
-            infrastructure.transactions.PostgresTransaction(
-                engine, infrastructure.warehouses.PostgresWarehouseWriter
+            infrastructure.repositories.transactions.PostgresTransaction(
+                database.sessions, infrastructure.repositories.warehouses.PostgresWarehouseWriter
             ),
-            infrastructure.transactions.PostgresTransaction(
-                engine, infrastructure.receipts.PostgresReceiptWriter
+            infrastructure.repositories.transactions.PostgresTransaction(
+                database.sessions, infrastructure.repositories.receipts.PostgresReceiptWriter
             ),
-            infrastructure.products.PostgresProductCatalog(engine),
+            infrastructure.repositories.products.PostgresProductCatalog(database.sessions),
             data.warehouses,
             [
                 application.demo.Product(product.sku, product.name, product.initial_receipts)
@@ -41,7 +41,7 @@ def main() -> None:
             ],
         )
     finally:
-        engine.dispose()
+        database.close()
 
 
 if __name__ == "__main__":

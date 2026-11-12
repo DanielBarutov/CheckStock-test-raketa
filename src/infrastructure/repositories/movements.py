@@ -3,11 +3,11 @@ import sqlalchemy.orm
 
 import domain.movements
 import domain.stock
-import infrastructure.balances
-import infrastructure.models as orm_models
+import infrastructure.database.models as orm_models
+import infrastructure.repositories.balances
 
 
-class PostgresMovements(infrastructure.balances.PostgresBalances):
+class PostgresMovements(infrastructure.repositories.balances.PostgresBalances):
     def active_stock(self, product_id: int) -> dict[int, tuple[str, domain.stock.Balance]]:
         warehouse = orm_models.Warehouse
         balance = orm_models.StockBalance

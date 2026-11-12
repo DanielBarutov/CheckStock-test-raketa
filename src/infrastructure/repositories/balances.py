@@ -1,7 +1,7 @@
 import sqlalchemy.orm
 
 import domain.stock
-import infrastructure.models as orm_models
+import infrastructure.database.models as orm_models
 
 
 class PostgresBalances:

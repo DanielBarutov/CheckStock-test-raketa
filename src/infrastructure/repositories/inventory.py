@@ -1,17 +1,15 @@
 import sqlalchemy
-import sqlalchemy.engine
 import sqlalchemy.orm
 
 import application.inventory
 import domain.stock
-import infrastructure.models as orm_models
+import infrastructure.database.db
+import infrastructure.database.models as orm_models
 
 
 class PostgresInventoryReader:
-    def __init__(self, engine: sqlalchemy.engine.Engine) -> None:
-        self.engine = engine.execution_options(
-            isolation_level="REPEATABLE READ", postgresql_readonly=True
-        )
+    def __init__(self, sessions: infrastructure.database.db.SessionFactory) -> None:
+        self.sessions = sessions
 
     def read(self) -> application.inventory.Inventory:
         product = orm_models.Product
@@ -21,7 +19,7 @@ class PostgresInventoryReader:
         operation = orm_models.StockOperation
         destination = sqlalchemy.orm.aliased(warehouse)
 
-        with sqlalchemy.orm.Session(self.engine) as session:
+        with self.sessions() as session:
             balances_query = (
                 sqlalchemy.select(
                     product.sku,
