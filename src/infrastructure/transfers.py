@@ -15,25 +15,10 @@ class PostgresTransferWriter:
 
     def send(self, transfer: application.transfers.Transfer) -> int:
         params = dataclasses.asdict(transfer)
-        targets = sqlalchemy.text("""
-            SELECT w.id, w.name, coalesce(b.on_hand - b.reserved, 0) AS available
-            FROM warehouses w CROSS JOIN products p LEFT JOIN stock_balances b
-              ON b.product_id = p.id AND b.warehouse_id = w.id
-            WHERE w.archived_at IS NULL AND p.id = :product_id ORDER BY w.name, w.id
-        """)
-        stock = {row.id: row for row in self.connection.execute(targets, params)}
-        if transfer.source not in stock or transfer.destination not in stock:
+        stock = infrastructure.balances.active_stock(self.connection, transfer.product_id)
+        if transfer.destination not in stock:
             raise domain.receipts.ReceiptTargetNotFound("Active warehouse or product not found")
-        available = stock[transfer.source].available
-        if available < transfer.quantity:
-            raise domain.transfers.InsufficientStock(
-                available,
-                [
-                    (row.name, row.available)
-                    for row in stock.values()
-                    if row.id != transfer.source and row.available > 0
-                ],
-            )
+        infrastructure.balances.require_available(stock, transfer.source, transfer.quantity)
         self.connection.execute(
             sqlalchemy.text("""
             UPDATE stock_balances SET on_hand = on_hand - :quantity
