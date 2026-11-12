@@ -14,7 +14,7 @@ def test_concurrent_fbs_reservations_and_repeated_dispatch(
     product_id: int,
     command_key: Key,
 ) -> None:
-    """Проверяет защиту от двойного резерва и повторного списания при отправке клиенту."""
+    """Проверяет защиту от двойного резерва и повторного списания после архивации склада."""
     stock = {"warehouse_id": warehouse_id, "product_id": product_id, "quantity": 5}
     assert api.post("/receipts", json=stock, headers=command_key()).status_code == 201
 
@@ -32,6 +32,7 @@ def test_concurrent_fbs_reservations_and_repeated_dispatch(
             4,
         )
         operation_id = connection.exec_driver_sql("SELECT id FROM stock_operations").scalar_one()
+    assert api.delete(f"/warehouses/{warehouse_id}", headers=command_key()).status_code == 200
     for _ in range(2):
         data = {"operation_id": operation_id, "key": command_key()["Idempotency-Key"]}
         assert (
@@ -55,7 +56,7 @@ def test_cancelling_fbs_reservation_releases_stock(
     product_id: int,
     command_key: Key,
 ) -> None:
-    """Проверяет, что отмена снимает резерв и сохраняет физический остаток."""
+    """Проверяет, что отмена снимает резерв на архивном складе и сохраняет остаток."""
     stock = {"warehouse_id": warehouse_id, "product_id": product_id, "quantity": 2}
     assert api.post("/receipts", json=stock, headers=command_key()).status_code == 201
     request = {**stock, "key": command_key()["Idempotency-Key"]}
@@ -64,6 +65,7 @@ def test_cancelling_fbs_reservation_releases_stock(
     )
     with postgres.connect() as connection:
         operation_id = connection.exec_driver_sql("SELECT id FROM stock_operations").scalar_one()
+    assert api.delete(f"/warehouses/{warehouse_id}", headers=command_key()).status_code == 200
     data = {"operation_id": operation_id, "key": command_key()["Idempotency-Key"]}
     assert api.post("/inventory/fbs-cancel", data=data, follow_redirects=False).status_code == 303
     with postgres.connect() as connection:
@@ -74,6 +76,5 @@ def test_cancelling_fbs_reservation_releases_stock(
     data["operation_id"] = 999
     data["key"] = command_key()["Idempotency-Key"]
     assert api.post("/inventory/fbs-dispatch", data=data).status_code == 404
-    assert api.delete(f"/warehouses/{warehouse_id}", headers=command_key()).status_code == 200
     request["key"] = command_key()["Idempotency-Key"]
     assert api.post("/inventory/fbs-reserve", data=request).status_code == 404
