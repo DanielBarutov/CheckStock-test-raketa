@@ -10,8 +10,10 @@ import fastapi.templating
 import application.inventory
 import application.receipts
 import application.transactions
+import application.transfers
 import application.warehouses
 import domain.receipts
+import domain.transfers
 import domain.warehouses
 
 _ACTIONS = {
@@ -19,8 +21,12 @@ _ACTIONS = {
     "warehouse.rename": "Переименование склада",
     "warehouse.archive": "Архивирование склада",
     "stock.receipt": "Приход",
+    "transfer.send": "Отправка между складами",
+    "transfer.accept": "Приёмка перемещения",
 }
 _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
+    domain.transfers.InvalidRoute: (422, "Выберите разные склады."),
+    domain.transfers.TransferNotFound: (404, "Перемещение не найдено."),
     ValueError: (422, "Проверьте введённые данные."),
     domain.warehouses.InvalidName: (422, "Укажите название склада длиной от 1 до 120 символов."),
     domain.warehouses.NameConflict: (409, "Склад с таким названием уже существует."),
@@ -30,7 +36,9 @@ _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
     domain.receipts.StockLimit: (409, "Приход превысит допустимый остаток."),
     application.transactions.KeyConflict: (409, "Форма уже отправлена с другими данными."),
 }
-type FormAction = typing.Literal["receive", "create", "rename", "archive"]
+type FormAction = typing.Literal[
+    "receive", "create", "rename", "archive", "transfer-send", "transfer-accept"
+]
 FormText = typing.Annotated[str, fastapi.Form()]
 
 
@@ -45,6 +53,7 @@ def router(
     reader: application.inventory.InventoryReader,
     warehouses: application.transactions.Transaction[application.warehouses.WarehouseWriter],
     receipts: application.transactions.Transaction[application.receipts.ReceiptWriter],
+    transfers: application.transfers.Transaction,
 ) -> fastapi.APIRouter:
     routes = fastapi.APIRouter()
     templates = fastapi.templating.Jinja2Templates(
@@ -81,6 +90,8 @@ def router(
         product_id: FormText = "",
         quantity: FormText = "",
         name: FormText = "",
+        destination_id: FormText = "",
+        operation_id: FormText = "",
     ) -> fastapi.responses.Response:
         origin = request.headers.get("origin")
         if origin is not None and origin != str(request.base_url).rstrip("/"):
@@ -92,6 +103,16 @@ def router(
                     _identifier(warehouse_id), _identifier(product_id), int(quantity)
                 )
                 application.receipts.receive(receipts, command_key, receipt)
+            elif action == "transfer-send":
+                transfer = application.transfers.Transfer(
+                    _identifier(warehouse_id),
+                    _identifier(destination_id),
+                    _identifier(product_id),
+                    int(quantity),
+                )
+                application.transfers.send(transfers, command_key, transfer)
+            elif action == "transfer-accept":
+                application.transfers.accept(transfers, command_key, _identifier(operation_id))
             else:
                 change = application.warehouses.Change(
                     action,
@@ -99,6 +120,12 @@ def router(
                     None if action == "archive" else name,
                 )
                 application.warehouses.change_warehouse(warehouses, command_key, change)
+        except domain.transfers.InsufficientStock as error:
+            alternatives = ", ".join(f"{name}: {amount}" for name, amount in error.alternatives)
+            message = f"На выбранном складе доступно: {error.available}."
+            if alternatives:
+                message += f" На других складах: {alternatives}."
+            return render(request, message, 409)
         except tuple(_FORM_ERRORS) as error:
             status, message = _FORM_ERRORS[type(error)]
             return render(request, message, status)

@@ -10,6 +10,7 @@ import infrastructure.database
 import infrastructure.inventory
 import infrastructure.receipts
 import infrastructure.transactions
+import infrastructure.transfers
 import infrastructure.warehouses
 import presentation.health
 import presentation.inventory
@@ -43,7 +44,12 @@ def create_app() -> fastapi.FastAPI:
     app.include_router(presentation.receipts.router(receipts))
     app.include_router(
         presentation.inventory.router(
-            infrastructure.inventory.PostgresInventoryReader(engine), warehouses, receipts
+            infrastructure.inventory.PostgresInventoryReader(engine),
+            warehouses,
+            receipts,
+            infrastructure.transactions.PostgresTransaction(
+                engine, infrastructure.transfers.PostgresTransferWriter
+            ),
         )
     )
     return app
