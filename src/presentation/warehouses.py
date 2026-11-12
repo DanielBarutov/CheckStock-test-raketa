@@ -4,6 +4,7 @@ import uuid
 import fastapi
 import pydantic
 
+import application.transactions
 import application.warehouses
 import domain.warehouses
 
@@ -15,7 +16,9 @@ class WarehouseName(pydantic.BaseModel):
     name: str
 
 
-def router(transaction: application.warehouses.Transaction) -> fastapi.APIRouter:
+def router(
+    transaction: application.transactions.Transaction[application.warehouses.WarehouseWriter],
+) -> fastapi.APIRouter:
     routes = fastapi.APIRouter(prefix="/warehouses")
 
     def run(key: uuid.UUID, change: application.warehouses.Change) -> dict[str, int]:
@@ -25,7 +28,7 @@ def router(transaction: application.warehouses.Transaction) -> fastapi.APIRouter
             raise fastapi.HTTPException(422, str(error)) from error
         except domain.warehouses.WarehouseNotFound as error:
             raise fastapi.HTTPException(404, str(error)) from error
-        except (domain.warehouses.NameConflict, application.warehouses.KeyConflict) as error:
+        except (domain.warehouses.NameConflict, application.transactions.KeyConflict) as error:
             raise fastapi.HTTPException(409, str(error)) from error
 
     @routes.post("", status_code=201)

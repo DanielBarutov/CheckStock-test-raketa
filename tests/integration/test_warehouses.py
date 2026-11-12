@@ -1,87 +1,127 @@
 import collections.abc
-import subprocess
-import time
-import uuid
 
 import fastapi.testclient
 import pytest
-import sqlalchemy
 import sqlalchemy.engine
 
-import main
+type CommandKey = collections.abc.Callable[[], dict[str, str]]
 
 
-@pytest.fixture
-def postgres(monkeypatch: pytest.MonkeyPatch) -> collections.abc.Iterator[sqlalchemy.engine.Engine]:
-    run = ["docker", "run", "--rm", "-d", "-p", "127.0.0.1::5432", "-e"]
-    container = subprocess.check_output(
-        [*run, "POSTGRES_PASSWORD=checkstock", "postgres:18"], text=True
-    ).strip()
-    try:
-        port = ["docker", "port", container, "5432/tcp"]
-        address = subprocess.check_output(port, text=True).strip()
-        url = f"postgresql+psycopg://postgres:checkstock@{address}/postgres"
-        monkeypatch.setenv("DATABASE_URL", url)
-        ready = ["docker", "exec", container, "pg_isready", "-h", "127.0.0.1"]
-        for _ in range(30):
-            if subprocess.run(ready, check=False, capture_output=True).returncode == 0:
-                break
-            time.sleep(0.5)
-        subprocess.run(["alembic", "upgrade", "head"], check=True)
-        engine = sqlalchemy.create_engine(url)
-        try:
-            yield engine
-        finally:
-            engine.dispose()
-    finally:
-        subprocess.run(["docker", "rm", "-f", container], check=True, capture_output=True)
+def test_creation_replays_normalized_name_without_creating_another_warehouse(
+    api: fastapi.testclient.TestClient, command_key: CommandKey, postgres: sqlalchemy.engine.Engine
+) -> None:
+    """Проверяет, что повтор создания с тем же ключом возвращает тот же склад."""
+    key = command_key()
+    created = api.post("/warehouses", json={"name": " Север "}, headers=key)
+    replay = api.post("/warehouses", json={"name": "Север"}, headers=key)
 
-
-def test_warehouse_lifecycle_and_idempotency(postgres: sqlalchemy.engine.Engine) -> None:
-    def key() -> dict[str, str]:
-        return {"Idempotency-Key": str(uuid.uuid4())}
-
-    with fastapi.testclient.TestClient(main.create_app(), raise_server_exceptions=False) as client:
-        original = key()
-        created = client.post("/warehouses", json={"name": " Север "}, headers=original)
-        assert created.status_code == 201, created.text
-        warehouse_id = created.json()["id"]
-        path = f"/warehouses/{warehouse_id}"
-        replay = client.post("/warehouses", json={"name": "Север"}, headers=original)
-        assert replay.status_code == 201 and replay.json() == created.json()
-        assert client.post("/warehouses", json={"name": "Юг"}, headers=original).status_code == 409
-        assert client.post("/warehouses", json={"name": "север"}, headers=key()).status_code == 409
-        assert client.post("/warehouses", json={"name": " "}, headers=key()).status_code == 422
-        missing = client.patch("/warehouses/999", json={"name": "Юг"}, headers=key())
-        assert missing.status_code == 404
-
-        with postgres.begin() as connection:
-            connection.exec_driver_sql("INSERT INTO products (sku, name) VALUES ('SKU', 'Test')")
-            insert_balance = sqlalchemy.text("INSERT INTO stock_balances VALUES (:id, 1, 10, 2)")
-            connection.execute(insert_balance, {"id": warehouse_id})
-            connection.exec_driver_sql("""
-                ALTER TABLE audit_entries ADD CHECK (action <> 'warehouse.archive')
-            """)
-        renamed = client.patch(path, json={"name": "Новый Север"}, headers=key())
-        assert renamed.status_code == 200 and renamed.json() == created.json()
-        archive = key()
-        assert client.delete(path, headers=archive).status_code == 500
-        with postgres.begin() as connection:
-            archived = connection.exec_driver_sql("SELECT archived_at FROM warehouses")
-            assert archived.scalar_one() is None
-            connection.exec_driver_sql(
-                "ALTER TABLE audit_entries DROP CONSTRAINT audit_entries_action_check"
-            )
-        assert client.delete(path, headers=archive).json() == created.json()
-        assert client.delete(path, headers=archive).json() == created.json()
-        assert client.patch(path, json={"name": "Юг"}, headers=key()).status_code == 404
-
+    assert created.status_code == replay.status_code == 201
+    assert replay.json()["id"] == created.json()["id"]
     with postgres.connect() as connection:
-        archived = connection.exec_driver_sql("SELECT archived_at FROM warehouses")
-        assert archived.scalar_one() is not None
-        balance = connection.exec_driver_sql("SELECT * FROM stock_balances").one()
-        assert balance == (warehouse_id, 1, 10, 2)
+        assert connection.exec_driver_sql("SELECT name FROM warehouses").scalar_one() == "Север"
+        assert connection.exec_driver_sql("SELECT count(*) FROM audit_entries").scalar_one() == 1
+
+
+@pytest.mark.parametrize(
+    ("name", "reuse_key", "status"),
+    [("Юг", True, 409), ("север", False, 409), (" ", False, 422)],
+    ids=["changed-payload", "duplicate-name", "blank-name"],
+)
+def test_rejected_creation_preserves_catalog(
+    api: fastapi.testclient.TestClient,
+    command_key: CommandKey,
+    postgres: sqlalchemy.engine.Engine,
+    name: str,
+    reuse_key: bool,
+    status: int,
+) -> None:
+    """Проверяет, что конфликт ключа, дубликат имени или пустое имя не меняют справочник."""
+    key = command_key()
+    assert api.post("/warehouses", json={"name": "Север"}, headers=key).status_code == 201
+
+    response = api.post(
+        "/warehouses", json={"name": name}, headers=key if reuse_key else command_key()
+    )
+
+    assert response.status_code == status
+    with postgres.connect() as connection:
+        assert connection.exec_driver_sql("SELECT name FROM warehouses").scalar_one() == "Север"
+
+
+def test_rename_preserves_warehouse_id_and_previous_name_in_history(
+    api: fastapi.testclient.TestClient,
+    command_key: CommandKey,
+    warehouse_id: int,
+    postgres: sqlalchemy.engine.Engine,
+) -> None:
+    """Проверяет, что переименование сохраняет ID и прежнее название в журнале."""
+    response = api.patch(
+        f"/warehouses/{warehouse_id}", json={"name": "Новый Север"}, headers=command_key()
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == warehouse_id
+    with postgres.connect() as connection:
+        assert connection.exec_driver_sql("SELECT id, name FROM warehouses").one() == (
+            warehouse_id,
+            "Новый Север",
+        )
         assert connection.exec_driver_sql("""
             SELECT source_name, destination_name FROM audit_entries ORDER BY id
-        """).all() == [(None, "Север"), ("Север", "Новый Север"), ("Новый Север", None)]
-        assert connection.exec_driver_sql("SELECT count(*) FROM command_receipts").scalar_one() == 3
+        """).all() == [(None, "Север"), ("Север", "Новый Север")]
+
+
+def test_archiving_preserves_balance_and_replay_does_not_duplicate_history(
+    api: fastapi.testclient.TestClient,
+    command_key: CommandKey,
+    warehouse_id: int,
+    product_id: int,
+    postgres: sqlalchemy.engine.Engine,
+) -> None:
+    """Проверяет, что архивирование сохраняет остаток и повтор не добавляет запись в журнал."""
+    with postgres.begin() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO stock_balances VALUES (%s, %s, 10, 2)", (warehouse_id, product_id)
+        )
+    key = command_key()
+    path = f"/warehouses/{warehouse_id}"
+
+    assert api.delete(path, headers=key).status_code == 200
+    assert api.delete(path, headers=key).json()["id"] == warehouse_id
+    assert api.patch(path, json={"name": "Юг"}, headers=command_key()).status_code == 404
+    with postgres.connect() as connection:
+        assert (
+            connection.exec_driver_sql("SELECT archived_at FROM warehouses").scalar_one()
+            is not None
+        )
+        assert connection.exec_driver_sql("SELECT on_hand, reserved FROM stock_balances").one() == (
+            10,
+            2,
+        )
+        assert (
+            connection.exec_driver_sql("""
+            SELECT source_name FROM audit_entries WHERE action = 'warehouse.archive'
+        """).scalar_one()
+            == "Север"
+        )
+
+
+def test_archive_can_be_retried_after_history_write_fails(
+    api: fastapi.testclient.TestClient,
+    command_key: CommandKey,
+    warehouse_id: int,
+    postgres: sqlalchemy.engine.Engine,
+) -> None:
+    """Проверяет, что сбой записи истории отменяет архивирование и позволяет повторить запрос."""
+    with postgres.begin() as connection:
+        connection.exec_driver_sql("""
+            ALTER TABLE audit_entries ADD CONSTRAINT reject_archive CHECK (action <> 'warehouse.archive')
+        """)
+    key = command_key()
+    path = f"/warehouses/{warehouse_id}"
+
+    assert api.delete(path, headers=key).status_code == 500
+    with postgres.begin() as connection:
+        assert connection.exec_driver_sql("SELECT archived_at FROM warehouses").scalar_one() is None
+        connection.exec_driver_sql("ALTER TABLE audit_entries DROP CONSTRAINT reject_archive")
+    assert api.delete(path, headers=key).status_code == 200

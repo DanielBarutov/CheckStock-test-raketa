@@ -1,6 +1,3 @@
-import collections.abc
-import uuid
-
 import psycopg.errors
 import sqlalchemy
 import sqlalchemy.engine
@@ -55,40 +52,3 @@ class PostgresWarehouseWriter:
             },
         )
         return int(warehouse_id)
-
-
-class PostgresTransaction:
-    def __init__(self, engine: sqlalchemy.engine.Engine) -> None:
-        self.engine = engine
-
-    def run(
-        self,
-        key: uuid.UUID,
-        command: str,
-        fingerprint: str,
-        write: collections.abc.Callable[[application.warehouses.WarehouseWriter], int],
-    ) -> int:
-        with self.engine.begin() as connection:
-            connection.execute(
-                sqlalchemy.text("SELECT id FROM stores WHERE id = 1 FOR UPDATE")
-            ).one()
-            receipt = connection.execute(
-                sqlalchemy.text("""
-                SELECT command, fingerprint, result FROM command_receipts
-                WHERE idempotency_key = :key
-            """),
-                {"key": key},
-            ).one_or_none()
-            if receipt is not None:
-                if (receipt.command, receipt.fingerprint) != (command, fingerprint):
-                    raise application.warehouses.KeyConflict("Idempotency key is already in use")
-                return int(receipt.result)
-            result = write(PostgresWarehouseWriter(connection))
-            connection.execute(
-                sqlalchemy.text("""
-                INSERT INTO command_receipts (idempotency_key, command, fingerprint, result)
-                VALUES (:key, :command, :fingerprint, to_jsonb(CAST(:result AS bigint)))
-            """),
-                {"key": key, "command": command, "fingerprint": fingerprint, "result": result},
-            )
-            return result

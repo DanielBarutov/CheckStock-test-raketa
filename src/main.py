@@ -7,8 +7,11 @@ import fastapi
 import sqlalchemy
 
 import infrastructure.database
+import infrastructure.receipts
+import infrastructure.transactions
 import infrastructure.warehouses
 import presentation.health
+import presentation.receipts
 import presentation.warehouses
 
 
@@ -29,6 +32,17 @@ def create_app() -> fastapi.FastAPI:
         )
     )
     app.include_router(
-        presentation.warehouses.router(infrastructure.warehouses.PostgresTransaction(engine))
+        presentation.warehouses.router(
+            infrastructure.transactions.PostgresTransaction(
+                engine, infrastructure.warehouses.PostgresWarehouseWriter
+            )
+        )
+    )
+    app.include_router(
+        presentation.receipts.router(
+            infrastructure.transactions.PostgresTransaction(
+                engine, infrastructure.receipts.PostgresReceiptWriter
+            )
+        )
     )
     return app

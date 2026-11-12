@@ -20,6 +20,7 @@
 
 - Apply each successful mutation, audit entry, and idempotency receipt in a single transaction. Follow the locking order and state transitions in the PostgreSQL design.
 - Preserve balances and warehouse identifiers when archiving warehouses. Include archived stock and open operations in relevant views.
+- Use the `test-authoring` skill when writing, modifying, or reviewing tests. Exercise observable behavior through public interfaces and verify persisted state for inventory changes.
 - Test every use case and its failure paths. Use real PostgreSQL for migrations, transaction boundaries, idempotency, and concurrent mutations.
 - Enforce at least 95% combined line and branch coverage across `src` with `pytest-cov`. Once test tooling is configured, run `uv run pytest --cov=src --cov-branch --cov-fail-under=95` before declaring implementation complete.
 - Keep local specifications, Graphify output, caches, and credentials outside version control.
