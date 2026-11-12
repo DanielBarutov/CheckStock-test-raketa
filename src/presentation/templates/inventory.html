@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Остатки · CheckStock</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.1" integrity="sha384-s+zWZS1trxNKrpZcBEaz79ESJkKaVIwyYnfqT4czDf1N9jpxkUvAO4O1QwE2436Y" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1" integrity="sha384-OT3qnPBOZ0Z1BVC2R6WSI4cjBlIoSMeeZAUY8gZqaP1TgAJHbuo2gIM6KzQ8/viI" crossorigin="anonymous"></script>
+</head>
+<body class="min-h-screen bg-base-200 text-base-content">
+  <header class="border-b border-base-300 bg-base-100">
+    <div class="mx-auto max-w-6xl px-5 py-4 sm:flex sm:items-center sm:justify-between">
+      <span class="text-lg font-bold tracking-tight">CheckStock</span>
+      <nav aria-label="Разделы" class="mt-2 flex gap-5 text-sm sm:mt-0">
+        <a class="link link-hover" href="#balances">Остатки</a>
+        <a class="link link-hover" href="#history">История</a>
+      </nav>
+    </div>
+  </header>
+  <main class="mx-auto max-w-6xl space-y-10 px-5 py-8 sm:py-12">
+    <section id="balances" aria-labelledby="balance-title">
+      <h1 id="balance-title" class="mb-5 text-3xl font-semibold tracking-tight">Остатки по складам</h1>
+      <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+        <table class="table table-zebra">
+          <thead class="bg-base-200">
+            <tr>
+              <th scope="col">Артикул</th><th scope="col">Товар</th><th scope="col">Склад</th>
+              <th scope="col" class="text-right">На складе</th>
+              <th scope="col" class="text-right">Доступно</th>
+              <th scope="col" class="text-right">Резерв FBS</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in inventory.balances %}
+            <tr>
+              <th scope="row" class="font-mono text-xs">{{ row.sku }}</th>
+              <td>{{ row.product }}</td>
+              <td>{{ row.warehouse }}{% if row.archived %} <span class="badge badge-ghost badge-sm">Архив</span>{% endif %}</td>
+              <td class="text-right tabular-nums">{{ row.on_hand }}</td>
+              <td class="text-right font-semibold tabular-nums">{{ row.available }}</td>
+              <td class="text-right tabular-nums">{{ row.reserved }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Пока нет остатков. Загрузите демо командой <code>make seed</code>.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section id="history" aria-labelledby="history-title">
+      <h2 id="history-title" class="mb-4 text-xl font-semibold">История операций</h2>
+      <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+        <table class="table table-zebra">
+          <thead class="bg-base-200">
+            <tr>
+              <th scope="col">Время (UTC)</th><th scope="col">Операция</th><th scope="col">Артикул</th>
+              <th scope="col" class="text-right">Кол-во</th><th scope="col">Откуда</th><th scope="col">Куда</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for entry in inventory.history %}{% set occurred_at = entry.occurred_at.astimezone(utc) %}
+            <tr>
+              <td class="whitespace-nowrap tabular-nums"><time datetime="{{ occurred_at.isoformat() }}">{{ occurred_at.strftime('%d.%m.%Y %H:%M') }}</time></td>
+              <td>{{ actions.get(entry.action, entry.action) }}</td>
+              <td>{{ entry.sku if entry.sku is not none else '—' }}</td>
+              <td class="text-right tabular-nums">{{ entry.quantity if entry.quantity is not none else '—' }}</td>
+              <td>{% if entry.action == 'stock.receipt' %}Внешний приход{% else %}{{ entry.source or '—' }}{% endif %}</td>
+              <td>{{ entry.destination if entry.destination is not none else '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Операций пока нет.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
