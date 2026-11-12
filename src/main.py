@@ -7,7 +7,9 @@ import fastapi
 import sqlalchemy
 
 import infrastructure.database
+import infrastructure.warehouses
 import presentation.health
+import presentation.warehouses
 
 
 def create_app() -> fastapi.FastAPI:
@@ -25,5 +27,8 @@ def create_app() -> fastapi.FastAPI:
         presentation.health.router(
             functools.partial(infrastructure.database.check_connection, engine)
         )
+    )
+    app.include_router(
+        presentation.warehouses.router(infrastructure.warehouses.PostgresTransaction(engine))
     )
     return app
