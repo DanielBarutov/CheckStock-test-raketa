@@ -9,9 +9,10 @@
 
 ## Architecture and Python
 
-- Put code in `src/{presentation,application,domain,infrastructure}`. Assemble dependencies in `src/main.py`.
+- Put code in `src/{presentation,application,domain,infrastructure}`. Manage database lifecycle in `src/main.py`. Wire HTTP ports through FastAPI `Depends` in `src/presentation/deps.py`.
 - Keep warehouse rules in domain, use-case orchestration and ports in application, HTTP and templates in presentation, and SQL and adapters in infrastructure. Domain depends on the standard library. Application depends inward on domain and its own ports.
 - Declare ports with `typing.Protocol`. Adapters satisfy them structurally.
+- Keep ORM models and session factories in `infrastructure/database` and PostgreSQL adapters in `infrastructure/repositories`.
 - Import modules and qualify references. For example, use `import typing` with `typing.Protocol` and `import domain.inventory` with `domain.inventory.Balance`. Use implicit namespace packages so fresh checkouts work without ignored `__init__.py` files.
 - Use integer quantities. If money enters scope, use `decimal.Decimal` and PostgreSQL `numeric` with an explicit scale and rounding rule.
 - Use one PostgreSQL database. Keep read queries and write use cases explicit within the same application.

@@ -1,17 +1,10 @@
-import collections.abc
-
 import fastapi
 
+import presentation.deps
 
-def router(check_database: collections.abc.Callable[[], None]) -> fastapi.APIRouter:
-    routes = fastapi.APIRouter()
+router = fastapi.APIRouter()
 
-    @routes.get("/health")
-    def health() -> dict[str, str]:
-        try:
-            check_database()
-        except ConnectionError as error:
-            raise fastapi.HTTPException(503, "Database unavailable") from error
-        return {"status": "ok"}
 
-    return routes
+@router.get("/health", dependencies=[fastapi.Depends(presentation.deps.check_database)])
+def health() -> dict[str, str]:
+    return {"status": "ok"}
