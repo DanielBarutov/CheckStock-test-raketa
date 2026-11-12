@@ -7,6 +7,7 @@ import fastapi
 import fastapi.responses
 import fastapi.templating
 
+import application.fbo
 import application.fbs
 import application.inventory
 import application.receipts
@@ -23,6 +24,8 @@ _ACTIONS = {
     "warehouse.rename": "Переименование склада",
     "warehouse.archive": "Архивирование склада",
     "stock.receipt": "Приход",
+    "fbo.dispatch": "Отправка на маркетплейс FBO",
+    "fbo.accept": "Приёмка на маркетплейсе FBO",
     "fbs.reserve": "Резерв FBS",
     "fbs.cancel": "Отмена резерва FBS",
     "fbs.dispatch": "Отправка клиенту FBS",
@@ -34,6 +37,7 @@ _FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
     domain.transfers.TransferNotFound: (404, "Перемещение не найдено."),
     domain.fbs.ReservationNotFound: (404, "Резерв не найден."),
     domain.fbs.ReservationClosed: (409, "Резерв уже закрыт."),
+    application.fbo.ShipmentNotFound: (404, "Отправка FBO не найдена."),
     ValueError: (422, "Проверьте введённые данные."),
     domain.warehouses.InvalidName: (422, "Укажите название склада длиной от 1 до 120 символов."),
     domain.warehouses.NameConflict: (409, "Склад с таким названием уже существует."),
@@ -53,6 +57,8 @@ type FormAction = typing.Literal[
     "fbs-reserve",
     "fbs-cancel",
     "fbs-dispatch",
+    "fbo-dispatch",
+    "fbo-accept",
 ]
 FormText = typing.Annotated[str, fastapi.Form()]
 
@@ -70,6 +76,7 @@ def router(
     receipts: application.transactions.Transaction[application.receipts.ReceiptWriter],
     transfers: application.transfers.Transaction,
     fbs: application.fbs.Transaction,
+    fbo: application.fbo.Transaction,
 ) -> fastapi.APIRouter:
     routes = fastapi.APIRouter()
     templates = fastapi.templating.Jinja2Templates(
@@ -114,12 +121,14 @@ def router(
             raise fastapi.HTTPException(403, "Cross-origin form submission")
         try:
             command_key = uuid.UUID(key)
-            if action == "receive" or action == "fbs-reserve":
+            if action == "receive" or action == "fbs-reserve" or action == "fbo-dispatch":
                 receipt = application.receipts.Receipt(
                     _identifier(warehouse_id), _identifier(product_id), int(quantity)
                 )
                 if action == "receive":
                     application.receipts.receive(receipts, command_key, receipt)
+                elif action == "fbo-dispatch":
+                    application.fbo.dispatch(fbo, command_key, receipt)
                 else:
                     application.fbs.reserve(fbs, command_key, receipt)
             elif action == "transfer-send":
@@ -132,6 +141,8 @@ def router(
                 application.transfers.send(transfers, command_key, transfer)
             elif action == "transfer-accept":
                 application.transfers.accept(transfers, command_key, _identifier(operation_id))
+            elif action == "fbo-accept":
+                application.fbo.accept(fbo, command_key, _identifier(operation_id))
             elif action == "fbs-cancel" or action == "fbs-dispatch":
                 finish: application.fbs.Action = "cancel" if action == "fbs-cancel" else "dispatch"
                 application.fbs.finish(fbs, command_key, _identifier(operation_id), finish)

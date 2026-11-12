@@ -48,6 +48,8 @@ class Inventory:
     transfers: list[InTransit]
     fbs_reserved: list[InTransit]
     fbs_in_transit: list[InTransit]
+    fbo_in_transit: list[InTransit]
+    fbo_received: list[InTransit]
 
 
 class InventoryReader(typing.Protocol):
