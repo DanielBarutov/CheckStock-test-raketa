@@ -1,5 +1,6 @@
 import psycopg.errors
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
 import sqlalchemy.orm as sa_orm
 
 import application.warehouses
@@ -38,7 +39,7 @@ class PostgresWarehouseWriter:
                 )
         try:
             self.session.flush()
-        except sa.exc.IntegrityError as error:
+        except sa_exc.IntegrityError as error:
             if isinstance(error.orig, psycopg.errors.UniqueViolation):
                 raise domain.warehouses.NameConflict("Warehouse name is already in use") from error
             raise

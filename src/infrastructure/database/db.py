@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
 import sqlalchemy.orm as sa_orm
 
 type SessionFactory = sa_orm.sessionmaker[sa_orm.Session]
@@ -17,7 +18,7 @@ class Database:
         try:
             with self.sessions() as session:
                 session.execute(sa.select(1))
-        except sa.exc.OperationalError as error:
+        except sa_exc.OperationalError as error:
             raise ConnectionError("Database unavailable") from error
 
     def close(self) -> None:
