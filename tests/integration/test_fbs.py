@@ -25,7 +25,7 @@ def test_concurrent_fbs_reservations_and_repeated_dispatch(
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         keys = [command_key()["Idempotency-Key"] for _ in range(2)]
         assert sorted(pool.map(reserve, keys)) == [303, 409]
-    assert "В резерве" in api.get("/").text
+    assert "В резерве" in api.get("/inventory/fbs").text
     with postgres.connect() as connection:
         assert connection.exec_driver_sql("SELECT on_hand, reserved FROM stock_balances").one() == (
             5,
@@ -39,7 +39,7 @@ def test_concurrent_fbs_reservations_and_repeated_dispatch(
             api.post("/inventory/fbs-dispatch", data=data, follow_redirects=False).status_code
             == 303
         )
-    assert "В пути к клиенту" in api.get("/").text
+    assert "В пути к клиенту" in api.get("/inventory/fbs").text
     data["key"] = command_key()["Idempotency-Key"]
     assert api.post("/inventory/fbs-cancel", data=data).status_code == 409
     with postgres.connect() as connection:

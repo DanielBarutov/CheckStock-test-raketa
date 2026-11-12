@@ -1,6 +1,5 @@
 {% from "inventory_fields.html" import key, choices, quantity with context %}
-<section id="fbo" aria-labelledby="fbo-title">
-  <h2 id="fbo-title" class="mb-4 text-xl font-semibold">Поставки FBO</h2>
+<section id="fbo" aria-labelledby="page-title">
   {% if inventory.warehouses and inventory.products %}
   <form action="/inventory/fbo-dispatch" method="post" class="mb-4 grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
     {{ key() }}

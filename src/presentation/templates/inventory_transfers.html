@@ -1,6 +1,5 @@
 {% from "inventory_fields.html" import key, choices, quantity with context %}
-<section id="transfers" aria-labelledby="transfers-title">
-  <h2 id="transfers-title" class="mb-4 text-xl font-semibold">Перемещения между складами</h2>
+<section id="transfers" aria-labelledby="page-title">
   {% if inventory.warehouses|length >= 2 and inventory.products %}
   <form action="/inventory/transfer-send" method="post" class="mb-4 grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
     {{ key() }}

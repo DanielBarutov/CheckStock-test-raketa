@@ -49,7 +49,7 @@ def test_transfer_accepts_once_even_concurrently_after_destination_is_archived(
     keys = [command_key()["Idempotency-Key"] for _ in range(2)]
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         assert list(pool.map(accept, keys)) == [303, 303]
-    assert 'action="/inventory/transfer-accept"' not in api.get("/").text
+    assert 'action="/inventory/transfer-accept"' not in api.get("/inventory/transfers").text
     with postgres.connect() as connection:
         assert connection.exec_driver_sql("""
             SELECT on_hand FROM stock_balances ORDER BY warehouse_id

@@ -1,0 +1,26 @@
+<section id="history" aria-labelledby="page-title">
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+    <table class="table table-zebra">
+      <thead class="bg-base-200">
+        <tr>
+          <th scope="col">Время (UTC)</th><th scope="col">Операция</th><th scope="col">Артикул</th>
+          <th scope="col" class="text-right">Кол-во</th><th scope="col">Откуда</th><th scope="col">Куда</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for entry in inventory.history %}{% set occurred_at = entry.occurred_at.astimezone(utc) %}
+        <tr>
+          <td class="whitespace-nowrap tabular-nums"><time datetime="{{ occurred_at.isoformat() }}">{{ occurred_at.strftime('%d.%m.%Y %H:%M') }}</time></td>
+          <td>{{ actions.get(entry.action, entry.action) }}</td>
+          <td>{{ entry.sku if entry.sku is not none else '—' }}</td>
+          <td class="text-right tabular-nums">{{ entry.quantity if entry.quantity is not none else '—' }}</td>
+          <td>{% if entry.action == 'stock.receipt' %}Внешний приход{% else %}{{ entry.source or '—' }}{% endif %}</td>
+          <td>{{ entry.destination if entry.destination is not none else '—' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">Операций пока нет.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

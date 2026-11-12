@@ -1,6 +1,5 @@
 {% from "inventory_fields.html" import key, choices, quantity with context %}
-<section id="fbs" aria-labelledby="fbs-title">
-  <h2 id="fbs-title" class="mb-4 text-xl font-semibold">Заказы FBS</h2>
+<section id="fbs" aria-labelledby="page-title">
   {% if inventory.warehouses and inventory.products %}
   <form action="/inventory/fbs-reserve" method="post" class="mb-4 grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
     {{ key() }}

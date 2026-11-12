@@ -19,6 +19,15 @@ import domain.receipts
 import domain.transfers
 import domain.warehouses
 
+_PAGES = {
+    "balances": "Остатки",
+    "operations": "Складские операции",
+    "transfers": "Перемещения",
+    "fbs": "Заказы FBS",
+    "fbo": "Поставки FBO",
+    "history": "История операций",
+}
+
 _ACTIONS = {
     "warehouse.create": "Создание склада",
     "warehouse.rename": "Переименование склада",
@@ -84,18 +93,21 @@ def router(
     )
 
     def render(
-        request: fastapi.Request, error: str | None = None, status: int = 200
+        request: fastapi.Request, page: str, error: str | None = None, status: int = 200
     ) -> fastapi.responses.Response:
         return templates.TemplateResponse(
             request,
             "inventory.html",
             {
                 "inventory": reader.read(),
+                "pages": _PAGES,
+                "page": page,
                 "actions": _ACTIONS,
                 "utc": datetime.UTC,
                 "new_key": uuid.uuid4,
                 "max_quantity": domain.receipts.MAX_QUANTITY,
                 "error": error,
+                "saved": error is None and request.query_params.get("saved") == "1",
             },
             status_code=status,
             headers={"Cache-Control": "no-store"},
@@ -103,7 +115,15 @@ def router(
 
     @routes.get("/", response_class=fastapi.responses.HTMLResponse, include_in_schema=False)
     def inventory(request: fastapi.Request) -> fastapi.responses.Response:
-        return render(request)
+        return render(request, "balances")
+
+    @routes.get(
+        "/inventory/{page}", response_class=fastapi.responses.HTMLResponse, include_in_schema=False
+    )
+    def section(request: fastapi.Request, page: str) -> fastapi.responses.Response:
+        if page not in _PAGES:
+            raise fastapi.HTTPException(404, "Раздел не найден")
+        return render(request, page)
 
     @routes.post("/inventory/{action}", include_in_schema=False)
     def submit(
@@ -120,6 +140,8 @@ def router(
         origin = request.headers.get("origin")
         if origin is not None and origin != str(request.base_url).rstrip("/"):
             raise fastapi.HTTPException(403, "Cross-origin form submission")
+        prefix = action.split("-", 1)[0]
+        page = {"transfer": "transfers", "fbs": "fbs", "fbo": "fbo"}.get(prefix, "operations")
         try:
             command_key = uuid.UUID(key)
             if action == "receive" or action == "fbs-reserve" or action == "fbo-dispatch":
@@ -159,10 +181,10 @@ def router(
             message = f"На выбранном складе доступно: {error.available}."
             if alternatives:
                 message += f" На других складах: {alternatives}."
-            return render(request, message, 409)
+            return render(request, page, message, 409)
         except tuple(_FORM_ERRORS) as error:
             status, message = _FORM_ERRORS[type(error)]
-            return render(request, message, status)
-        return fastapi.responses.RedirectResponse("/#balances", status_code=303)
+            return render(request, page, message, status)
+        return fastapi.responses.RedirectResponse(f"/inventory/{page}?saved=1", status_code=303)
 
     return routes

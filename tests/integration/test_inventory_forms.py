@@ -10,7 +10,9 @@ def form(html: str, action: str) -> str:
 
 
 def key_for(api: fastapi.testclient.TestClient, action: str) -> str:
-    match = re.search(r'name="key" value="([^"]+)"', form(api.get("/").text, action))
+    match = re.search(
+        r'name="key" value="([^"]+)"', form(api.get("/inventory/operations").text, action)
+    )
     assert match is not None
     return match[1]
 
@@ -21,7 +23,7 @@ def test_receipt_form_redirects_and_retry_keeps_stock_unchanged(
     product_id: int,
     postgres: sqlalchemy.engine.Engine,
 ) -> None:
-    """Проверяет, что приход из формы обновляет остаток один раз и возвращает к таблице."""
+    """Проверяет, что приход из формы обновляет остаток один раз и возвращает в раздел операций."""
     data = {
         "key": key_for(api, "receive"),
         "warehouse_id": warehouse_id,
@@ -30,7 +32,10 @@ def test_receipt_form_redirects_and_retry_keeps_stock_unchanged(
     }
     for _ in range(2):
         response = api.post("/inventory/receive", data=data, follow_redirects=False)
-        assert response.status_code == 303 and response.headers["location"] == "/#balances"
+        assert (
+            response.status_code == 303
+            and response.headers["location"] == "/inventory/operations?saved=1"
+        )
     with postgres.connect() as connection:
         assert connection.exec_driver_sql("SELECT on_hand FROM stock_balances").scalar_one() == 4
 
@@ -54,7 +59,8 @@ def test_warehouse_forms_create_rename_and_archive_without_losing_stock(
     archived = api.post("/inventory/archive", data={**selection, "key": key_for(api, "archive")})
     assert archived.status_code == 200
     assert "Новый Запад" not in form(archived.text, "receive")
-    assert "Архив" in archived.text
+    assert "Операция сохранена" in archived.text
+    assert "Новый Запад" in api.get("/").text
     with postgres.connect() as connection:
         assert connection.exec_driver_sql("SELECT on_hand FROM stock_balances").scalar_one() == 3
 
@@ -93,4 +99,4 @@ def test_form_rejects_cross_origin_submission(api: fastapi.testclient.TestClient
     response = api.post("/inventory/create", data=data, headers={"Origin": "https://other.example"})
 
     assert response.status_code == 403
-    assert "Запад" not in api.get("/").text
+    assert "Запад" not in api.get("/inventory/operations").text

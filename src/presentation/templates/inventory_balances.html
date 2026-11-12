@@ -1,0 +1,28 @@
+<section id="balances" aria-labelledby="page-title">
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+    <table class="table table-zebra">
+      <thead class="bg-base-200">
+        <tr>
+          <th scope="col">Артикул</th><th scope="col">Товар</th><th scope="col">Склад</th>
+          <th scope="col" class="text-right">На складе</th>
+          <th scope="col" class="text-right">Доступно</th>
+          <th scope="col" class="text-right">Резерв FBS</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in inventory.balances %}
+        <tr>
+          <th scope="row" class="font-mono text-xs">{{ row.sku }}</th>
+          <td>{{ row.product }}</td>
+          <td>{{ row.warehouse }}{% if row.archived %} <span class="badge badge-ghost badge-sm">Архив</span>{% endif %}</td>
+          <td class="text-right tabular-nums">{{ row.on_hand }}</td>
+          <td class="text-right font-semibold tabular-nums">{{ row.available }}</td>
+          <td class="text-right tabular-nums">{{ row.reserved }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">Пока нет остатков. Загрузите демо командой <code>make seed</code>.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

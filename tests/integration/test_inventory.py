@@ -54,7 +54,7 @@ def test_inventory_renders_empty_state(api: fastapi.testclient.TestClient) -> No
 
     assert response.status_code == 200
     assert "Пока нет остатков" in response.text
-    assert "Операций пока нет" in response.text
+    assert "Операций пока нет" in api.get("/inventory/history").text
 
 
 def test_inventory_lists_all_demo_pairs_and_receipt_history(
@@ -73,7 +73,8 @@ def test_inventory_lists_all_demo_pairs_and_receipt_history(
         ("SKU-103", "Север", "0", "0", "0"),
         ("SKU-103", "Юг", "4", "4", "0"),
     }
-    receipts = [row for row in tables["history"] if row[1] == "Приход"]
+    history = TableRows(api.get("/inventory/history").text).tables["history"]
+    receipts = [row for row in history if row[1] == "Приход"]
     assert [tuple(row[2:]) for row in receipts] == [
         ("SKU-103", "4", "Внешний приход", "Юг"),
         ("SKU-102", "5", "Внешний приход", "Север"),
@@ -107,7 +108,9 @@ def test_inventory_shows_archived_stock_and_keeps_historical_warehouse_name(
     tables = TableRows(api.get("/").text).tables
     assert ["SKU-101", "Органайзер", "Северный Архив", "10", "0", "2"] in tables["balances"]
     assert ("SKU-101", "10", "Внешний приход", "Север") in {
-        tuple(row[2:]) for row in tables["history"] if row[1] == "Приход"
+        tuple(row[2:])
+        for row in TableRows(api.get("/inventory/history").text).tables["history"]
+        if row[1] == "Приход"
     }
 
 
@@ -124,7 +127,7 @@ def test_inventory_keeps_fbs_and_fbo_shipments_in_separate_sections(
     assert (
         api.post("/inventory/fbs-reserve", data=reserve, follow_redirects=False).status_code == 303
     )
-    page = api.get("/")
+    page = api.get("/inventory/fbs")
     operation = re.search(r'name="operation_id" value="(\d+)"', page.text)
     assert operation is not None
     dispatch = {"operation_id": operation[1], "key": command_key()["Idempotency-Key"]}
@@ -137,6 +140,22 @@ def test_inventory_keeps_fbs_and_fbo_shipments_in_separate_sections(
     response = api.post("/inventory/fbo-dispatch", data=fbo)
     assert response.status_code == 200
     tables = TableRows(response.text).tables
-    assert tables["fbs"] == [["SKU", "Север", "2", "В пути к клиенту", "—"]]
+    fbs = TableRows(api.get("/inventory/fbs").text).tables
+    assert fbs["fbs"] == [["SKU", "Север", "2", "В пути к клиенту", "—"]]
     assert tables["fbo"][0][:4] == ["SKU", "Север", "3", "В пути на маркетплейс"]
     assert len(tables["fbo"]) == 1
+
+
+def test_inventory_navigation_opens_one_section_per_page(
+    api: fastapi.testclient.TestClient,
+) -> None:
+    """Проверяет отдельные страницы, ссылки меню и выделение текущего раздела."""
+    pages = ("balances", "operations", "transfers", "fbs", "fbo", "history")
+    for page in pages:
+        path = "/" if page == "balances" else f"/inventory/{page}"
+        response = api.get(path)
+        assert response.status_code == 200
+        assert response.text.count('aria-current="page"') == 1
+        for section in pages:
+            assert (f'<section id="{section}"' in response.text) == (section == page)
+    assert api.get("/inventory/unknown").status_code == 404
