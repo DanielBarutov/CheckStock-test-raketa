@@ -1,11 +1,18 @@
 import datetime
 import pathlib
+import typing
+import uuid
 
 import fastapi
 import fastapi.responses
 import fastapi.templating
 
 import application.inventory
+import application.receipts
+import application.transactions
+import application.warehouses
+import domain.receipts
+import domain.warehouses
 
 _ACTIONS = {
     "warehouse.create": "Создание склада",
@@ -13,20 +20,88 @@ _ACTIONS = {
     "warehouse.archive": "Архивирование склада",
     "stock.receipt": "Приход",
 }
+_FORM_ERRORS: dict[type[Exception], tuple[int, str]] = {
+    ValueError: (422, "Проверьте введённые данные."),
+    domain.warehouses.InvalidName: (422, "Укажите название склада длиной от 1 до 120 символов."),
+    domain.warehouses.NameConflict: (409, "Склад с таким названием уже существует."),
+    domain.warehouses.WarehouseNotFound: (404, "Активный склад не найден."),
+    domain.receipts.InvalidQuantity: (422, "Укажите положительное целое количество."),
+    domain.receipts.ReceiptTargetNotFound: (404, "Активный склад или товар не найден."),
+    domain.receipts.StockLimit: (409, "Приход превысит допустимый остаток."),
+    application.transactions.KeyConflict: (409, "Форма уже отправлена с другими данными."),
+}
+type FormAction = typing.Literal["receive", "create", "rename", "archive"]
+FormText = typing.Annotated[str, fastapi.Form()]
 
 
-def router(reader: application.inventory.InventoryReader) -> fastapi.APIRouter:
+def _identifier(value: str) -> int:
+    identifier = int(value)
+    if not 0 < identifier < 2**63:
+        raise ValueError("Invalid identifier")
+    return identifier
+
+
+def router(
+    reader: application.inventory.InventoryReader,
+    warehouses: application.transactions.Transaction[application.warehouses.WarehouseWriter],
+    receipts: application.transactions.Transaction[application.receipts.ReceiptWriter],
+) -> fastapi.APIRouter:
     routes = fastapi.APIRouter()
     templates = fastapi.templating.Jinja2Templates(
         directory=pathlib.Path(__file__).with_name("templates")
     )
 
-    @routes.get("/", response_class=fastapi.responses.HTMLResponse, include_in_schema=False)
-    def inventory(request: fastapi.Request) -> fastapi.responses.Response:
+    def render(
+        request: fastapi.Request, error: str | None = None, status: int = 200
+    ) -> fastapi.responses.Response:
         return templates.TemplateResponse(
             request,
             "inventory.html",
-            {"inventory": reader.read(), "actions": _ACTIONS, "utc": datetime.UTC},
+            {
+                "inventory": reader.read(),
+                "actions": _ACTIONS,
+                "utc": datetime.UTC,
+                "new_key": uuid.uuid4,
+                "error": error,
+            },
+            status_code=status,
+            headers={"Cache-Control": "no-store"},
         )
+
+    @routes.get("/", response_class=fastapi.responses.HTMLResponse, include_in_schema=False)
+    def inventory(request: fastapi.Request) -> fastapi.responses.Response:
+        return render(request)
+
+    @routes.post("/inventory/{action}", include_in_schema=False)
+    def submit(
+        request: fastapi.Request,
+        action: FormAction,
+        key: FormText = "",
+        warehouse_id: FormText = "",
+        product_id: FormText = "",
+        quantity: FormText = "",
+        name: FormText = "",
+    ) -> fastapi.responses.Response:
+        origin = request.headers.get("origin")
+        if origin is not None and origin != str(request.base_url).rstrip("/"):
+            raise fastapi.HTTPException(403, "Cross-origin form submission")
+        try:
+            command_key = uuid.UUID(key)
+            if action == "receive":
+                receipt = application.receipts.Receipt(
+                    _identifier(warehouse_id), _identifier(product_id), int(quantity)
+                )
+                application.receipts.receive(receipts, command_key, receipt)
+            else:
+                change = application.warehouses.Change(
+                    action,
+                    None if action == "create" else _identifier(warehouse_id),
+                    None if action == "archive" else name,
+                )
+                application.warehouses.change_warehouse(warehouses, command_key, change)
+        except tuple(_FORM_ERRORS) as error:
+            status, message = _FORM_ERRORS[type(error)]
+            return render(request, message, status)
+        return fastapi.responses.RedirectResponse("/#balances", status_code=303)
 
     return routes

@@ -25,9 +25,17 @@ class HistoryEntry:
 
 
 @dataclasses.dataclass(frozen=True)
+class Option:
+    id: int
+    label: str
+
+
+@dataclasses.dataclass(frozen=True)
 class Inventory:
     balances: list[Balance]
     history: list[HistoryEntry]
+    warehouses: list[Option]
+    products: list[Option]
 
 
 class InventoryReader(typing.Protocol):

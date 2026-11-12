@@ -5,7 +5,7 @@
 - Implement the CheckStock warehouse prototype for one store. Include warehouse management, receipts, inter-warehouse transfers, FBS reservations and shipments, FBO shipments and receipt, balances, and operation history.
 - Read [the implementation plan](plans/IMPLEMENTATION.md) for delivery order, [the architecture](plans/ARCHITECTURE.md) for layer boundaries, and [the PostgreSQL design](plans/POSTGRESQL.md) before editing persistence or inventory operations.
 - Consult the original requirements and acceptance scenarios in local `docs/` when available. Use `tests/fixtures/demo_inventory.json` for demo data.
-- Keep each implementation plan in its own folder under `plans/`. Aim for 200 handwritten changed lines and split plans that would exceed 300. The owner commits each completed plan.
+- Keep each implementation plan in its own folder under `plans/`. Aim for 200 handwritten changed lines and split plans that would exceed 300. Commit each completed plan using Conventional Commits.
 
 ## Architecture and Python
 

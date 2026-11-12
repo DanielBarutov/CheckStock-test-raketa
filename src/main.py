@@ -33,21 +33,17 @@ def create_app() -> fastapi.FastAPI:
             functools.partial(infrastructure.database.check_connection, engine)
         )
     )
-    app.include_router(
-        presentation.warehouses.router(
-            infrastructure.transactions.PostgresTransaction(
-                engine, infrastructure.warehouses.PostgresWarehouseWriter
-            )
-        )
+    warehouses = infrastructure.transactions.PostgresTransaction(
+        engine, infrastructure.warehouses.PostgresWarehouseWriter
     )
-    app.include_router(
-        presentation.receipts.router(
-            infrastructure.transactions.PostgresTransaction(
-                engine, infrastructure.receipts.PostgresReceiptWriter
-            )
-        )
+    receipts = infrastructure.transactions.PostgresTransaction(
+        engine, infrastructure.receipts.PostgresReceiptWriter
     )
+    app.include_router(presentation.warehouses.router(warehouses))
+    app.include_router(presentation.receipts.router(receipts))
     app.include_router(
-        presentation.inventory.router(infrastructure.inventory.PostgresInventoryReader(engine))
+        presentation.inventory.router(
+            infrastructure.inventory.PostgresInventoryReader(engine), warehouses, receipts
+        )
     )
     return app

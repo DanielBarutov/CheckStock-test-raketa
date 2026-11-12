@@ -34,4 +34,12 @@ class PostgresInventoryReader:
             history = [
                 application.inventory.HistoryEntry(*row) for row in connection.execute(_HISTORY)
             ]
-        return application.inventory.Inventory(balances, history)
+            active = "SELECT id, name FROM warehouses WHERE archived_at IS NULL ORDER BY name, id"
+            catalog = "SELECT id, sku || ' · ' || name FROM products ORDER BY sku"
+            warehouses = [
+                application.inventory.Option(*row) for row in connection.exec_driver_sql(active)
+            ]
+            products = [
+                application.inventory.Option(*row) for row in connection.exec_driver_sql(catalog)
+            ]
+        return application.inventory.Inventory(balances, history, warehouses, products)

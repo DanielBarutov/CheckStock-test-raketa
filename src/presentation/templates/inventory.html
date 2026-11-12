@@ -13,11 +13,13 @@
       <span class="text-lg font-bold tracking-tight">CheckStock</span>
       <nav aria-label="Разделы" class="mt-2 flex gap-5 text-sm sm:mt-0">
         <a class="link link-hover" href="#balances">Остатки</a>
+        <a class="link link-hover" href="#operations">Операции</a>
         <a class="link link-hover" href="#history">История</a>
       </nav>
     </div>
   </header>
   <main class="mx-auto max-w-6xl space-y-10 px-5 py-8 sm:py-12">
+    {% if error %}<p class="alert alert-error mb-4" role="alert" id="operation-error" tabindex="-1">{{ error }}</p>{% endif %}
     <section id="balances" aria-labelledby="balance-title">
       <h1 id="balance-title" class="mb-5 text-3xl font-semibold tracking-tight">Остатки по складам</h1>
       <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
@@ -47,6 +49,7 @@
         </table>
       </div>
     </section>
+    {% include "inventory_forms.html" %}
     <section id="history" aria-labelledby="history-title">
       <h2 id="history-title" class="mb-4 text-xl font-semibold">История операций</h2>
       <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">

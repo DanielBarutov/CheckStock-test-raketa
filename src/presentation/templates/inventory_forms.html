@@ -1,0 +1,62 @@
+{% macro key() %}
+<input type="hidden" name="key" value="{{ new_key() }}">
+{% endmacro %}
+{% macro choices(name, title, options) %}
+<label class="block text-sm font-medium">
+  {{ title }}
+  <select name="{{ name }}" class="select mt-1 w-full" required>
+    <option value="">Выберите из списка</option>
+    {% for option in options %}<option value="{{ option.id }}">{{ option.label }}</option>{% endfor %}
+  </select>
+</label>
+{% endmacro %}
+{% macro warehouse_name() %}
+<label class="block text-sm font-medium">
+  Название склада
+  <input name="name" class="input mt-1 w-full" maxlength="120" required>
+</label>
+{% endmacro %}
+
+<section id="operations" aria-labelledby="operations-title">
+  <h2 id="operations-title" class="mb-4 text-xl font-semibold">Складские операции</h2>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <form action="/inventory/receive" method="post" class="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+      <h3 class="font-semibold">Приход</h3>
+      {{ key() }}
+      <fieldset class="space-y-3" {% if not inventory.warehouses or not inventory.products %}disabled{% endif %}>
+        {{ choices("warehouse_id", "Склад", inventory.warehouses) }}
+        {{ choices("product_id", "Товар", inventory.products) }}
+        <label class="block text-sm font-medium">
+          Количество
+          <input name="quantity" type="number" min="1" max="2147483647" step="1" class="input mt-1 w-full" required>
+        </label>
+        <button class="btn btn-neutral w-full" type="submit">Провести приход</button>
+      </fieldset>
+      {% if not inventory.warehouses or not inventory.products %}
+        <p class="text-sm">Для прихода нужны товар и активный склад.</p>
+      {% endif %}
+    </form>
+    <form action="/inventory/create" method="post" class="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+      <h3 class="font-semibold">Новый склад</h3>
+      {{ key() }}
+      {{ warehouse_name() }}
+      <button class="btn w-full" type="submit">Создать склад</button>
+    </form>
+    {% if inventory.warehouses %}
+    <form action="/inventory/rename" method="post" class="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+      <h3 class="font-semibold">Переименование</h3>
+      {{ key() }}
+      {{ choices("warehouse_id", "Склад", inventory.warehouses) }}
+      {{ warehouse_name() }}
+      <button class="btn w-full" type="submit">Переименовать</button>
+    </form>
+    <form action="/inventory/archive" method="post" class="space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+      <h3 class="font-semibold">Архивирование</h3>
+      {{ key() }}
+      {{ choices("warehouse_id", "Склад", inventory.warehouses) }}
+      <p class="text-sm">Остатки и история сохранятся.</p>
+      <button class="btn btn-error btn-outline w-full" type="submit">Архивировать</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
