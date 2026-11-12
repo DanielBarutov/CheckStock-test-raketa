@@ -23,7 +23,9 @@ class PostgresWarehouseWriter:
     def __init__(self, connection: sqlalchemy.engine.Connection) -> None:
         self.connection = connection
 
-    def apply(self, change: application.warehouses.Change) -> int:
+    def save_change(
+        self, change: application.warehouses.Change
+    ) -> tuple[int, str | None, str | None] | None:
         try:
             row = self.connection.execute(
                 sqlalchemy.text(_STATEMENTS[change.action]),
@@ -34,9 +36,12 @@ class PostgresWarehouseWriter:
                 raise domain.warehouses.NameConflict("Warehouse name is already in use") from error
             raise
         if row is None:
-            raise domain.warehouses.WarehouseNotFound("Active warehouse not found")
+            return None
+        return int(row[0]), row[1], row[2]
 
-        warehouse_id, old_name, new_name = row
+    def record_change(
+        self, action: str, warehouse_id: int, old_name: str | None, new_name: str | None
+    ) -> None:
         self.connection.execute(
             sqlalchemy.text("""
             INSERT INTO audit_entries
@@ -44,11 +49,10 @@ class PostgresWarehouseWriter:
             VALUES (:action, :source_id, :destination_id, :source, :destination)
         """),
             {
-                "action": f"warehouse.{change.action}",
+                "action": action,
                 "source_id": warehouse_id if old_name is not None else None,
                 "destination_id": warehouse_id if new_name is not None else None,
                 "source": old_name,
                 "destination": new_name,
             },
         )
-        return int(warehouse_id)
