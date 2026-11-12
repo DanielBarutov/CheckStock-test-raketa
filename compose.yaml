@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: checkstock
       POSTGRES_PASSWORD: checkstock
       POSTGRES_DB: checkstock
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
