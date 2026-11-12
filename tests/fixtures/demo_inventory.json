@@ -1,0 +1,9 @@
+{
+  "store": "Демо-магазин",
+  "warehouses": ["Север", "Юг"],
+  "products": [
+    {"sku": "SKU-101", "name": "Органайзер", "initial_receipts": {"Север": 10, "Юг": 6}},
+    {"sku": "SKU-102", "name": "Контейнер", "initial_receipts": {"Север": 5, "Юг": 0}},
+    {"sku": "SKU-103", "name": "Корзина", "initial_receipts": {"Север": 0, "Юг": 4}}
+  ]
+}
